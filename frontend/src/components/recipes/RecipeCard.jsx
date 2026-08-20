@@ -1,4 +1,4 @@
-export default function RecipeCard({ result }) {
+export default function RecipeCard({ result, selected, onToggleSelect }) {
   const { recipe, matchedIngredients, missingIngredients, usesExpiringSoon } = result;
 
   const expiringCount = matchedIngredients.filter(
@@ -6,8 +6,18 @@ export default function RecipeCard({ result }) {
   ).length;
 
   return (
-    <div className="recipe-card">
-      <h3>{recipe.title}</h3>
+    <div className={`recipe-card ${selected ? "selected" : ""}`}>
+      <div className="recipe-card-header">
+        <h3>{recipe.title}</h3>
+        <label className="select-checkbox">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggleSelect(recipe._id)}
+          />
+          <span>Plan this</span>
+        </label>
+      </div>
 
       {usesExpiringSoon && (
         <div className="match-reason">

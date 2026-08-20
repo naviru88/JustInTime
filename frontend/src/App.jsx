@@ -7,7 +7,7 @@ function App() {
     <div className="app-shell">
       <header className="top-nav">
         <div className="brand">
-          Just<span>InTime</span>
+          Fridge<span>First</span>
         </div>
         <nav>
           <NavLink to="/" end className={({ isActive }) => (isActive ? "active" : "")}>

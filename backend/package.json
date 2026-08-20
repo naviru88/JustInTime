@@ -1,5 +1,5 @@
 {
-  "name": "justintime-backend",
+  "name": "recipe-planner-backend",
   "version": "1.0.0",
   "description": "Backend for the expiry-aware recipe planner",
   "main": "server.js",
@@ -10,15 +10,12 @@
     "seed": "node seed/seedRecipes.js"
   },
   "dependencies": {
-    "cors": "^2.8.6",
-    "dotenv": "^16.6.1",
-    "express": "^4.22.2",
-    "mongoose": "^8.24.3"
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongoose": "^8.5.1"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+    "nodemon": "^3.1.4"
+  }
 }

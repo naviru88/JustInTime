@@ -1,4 +1,4 @@
-# JustInTime — Expiry-Aware Recipe Planner
+# FridgeFirst — Expiry-Aware Recipe Planner
 
 A MERN pet project that suggests recipes ranked by how many of your
 about-to-expire pantry ingredients they use — turning "what can I cook"

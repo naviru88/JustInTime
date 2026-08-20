@@ -18,4 +18,8 @@ export const fetchMatchedRecipes = (tags = []) =>
     .get("/recipes/matches", { params: tags.length ? { tags: tags.join(",") } : {} })
     .then((r) => r.data);
 
+// Grocery
+export const generateGroceryList = (recipeIds) =>
+  api.post("/grocery/generate", { recipeIds }).then((r) => r.data);
+
 export default api;
