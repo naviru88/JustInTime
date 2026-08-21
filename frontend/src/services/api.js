@@ -22,4 +22,11 @@ export const fetchMatchedRecipes = (tags = []) =>
 export const generateGroceryList = (recipeIds) =>
   api.post("/grocery/generate", { recipeIds }).then((r) => r.data);
 
+// Meal plan
+export const fetchMealPlan = (start, end) =>
+  api.get("/mealplan", { params: { start, end } }).then((r) => r.data);
+export const setMealSlot = (date, mealType, recipeId) =>
+  api.post("/mealplan", { date, mealType, recipeId }).then((r) => r.data);
+export const clearMealSlot = (id) => api.delete(`/mealplan/${id}`).then((r) => r.data);
+
 export default api;

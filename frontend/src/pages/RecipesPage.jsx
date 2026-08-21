@@ -3,10 +3,17 @@ import RecipeCard from "../components/recipes/RecipeCard.jsx";
 import GroceryList from "../components/recipes/GroceryList.jsx";
 import { fetchMatchedRecipes, generateGroceryList } from "../services/api.js";
 
+const DIETARY_TAGS = [
+  { value: "vegetarian", label: "Vegetarian" },
+  { value: "vegan", label: "Vegan" },
+  { value: "gluten-free", label: "Gluten-free" },
+];
+
 export default function RecipesPage() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeTags, setActiveTags] = useState([]);
 
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [groceryData, setGroceryData] = useState(null);
@@ -14,14 +21,23 @@ export default function RecipesPage() {
   const [groceryError, setGroceryError] = useState(null);
 
   useEffect(() => {
-    fetchMatchedRecipes()
+    setLoading(true);
+    fetchMatchedRecipes(activeTags)
       .then((data) => {
         setResults(data);
         setError(null);
       })
       .catch(() => setError("Couldn't load recipe matches. Is the backend running?"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [activeTags]);
+
+  const toggleTag = (tag) => {
+    setActiveTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+    setSelectedIds(new Set());
+    setGroceryData(null);
+  };
 
   const toggleSelect = (id) => {
     setSelectedIds((prev) => {
@@ -55,10 +71,32 @@ export default function RecipesPage() {
         grocery list for what you're missing.
       </p>
 
+      <div className="dietary-filters">
+        {DIETARY_TAGS.map((t) => (
+          <label
+            key={t.value}
+            className={`filter-chip ${activeTags.includes(t.value) ? "active" : ""}`}
+          >
+            <input
+              type="checkbox"
+              checked={activeTags.includes(t.value)}
+              onChange={() => toggleTag(t.value)}
+            />
+            {t.label}
+          </label>
+        ))}
+      </div>
+
       {loading && <p>Finding matches...</p>}
       {error && <p style={{ color: "#c1440e" }}>{error}</p>}
 
-      {!loading && !error && results.length === 0 && (
+      {!loading && !error && results.length === 0 && activeTags.length > 0 && (
+        <div className="empty-state">
+          No recipes match the selected dietary filters. Try removing one.
+        </div>
+      )}
+
+      {!loading && !error && results.length === 0 && activeTags.length === 0 && (
         <div className="empty-state">
           No recipes yet. Run <code>npm run seed</code> in the backend folder to load starter
           recipes.
