@@ -80,9 +80,139 @@ h1 {
 
 .pantry-form {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr auto;
+  grid-template-columns: auto 2fr 1fr 1fr 1fr auto;
   gap: 10px;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
+}
+
+.scan-button {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.scan-button:hover {
+  opacity: 0.85;
+}
+
+.scan-status {
+  font-size: 13px;
+  margin: -4px 0 20px;
+  color: var(--color-muted);
+}
+
+.scan-status-found {
+  color: var(--color-accent);
+}
+
+.scan-status-error,
+.scan-status-not-found {
+  color: var(--color-urgent);
+}
+
+.scanner-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.scanner-modal {
+  background: var(--color-surface);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 420px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.scanner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.scanner-close {
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--color-muted);
+  padding: 0 4px;
+}
+
+.scanner-close:hover {
+  color: var(--color-urgent);
+}
+
+.scanner-video-wrap {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: #000;
+}
+
+.scanner-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scanner-frame {
+  position: absolute;
+  inset: 20% 10%;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.scanner-manual {
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.scanner-manual-hint {
+  font-size: 13px;
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.scanner-manual input {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.scanner-manual button {
+  background: var(--color-ink);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.scanner-manual button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .pantry-form input {

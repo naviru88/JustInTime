@@ -8,7 +8,7 @@ function App() {
     <div className="app-shell">
       <header className="top-nav">
         <div className="brand">
-          Fridge<span>First</span>
+          Just In<span>Time</span>
         </div>
         <nav>
           <NavLink to="/" end className={({ isActive }) => (isActive ? "active" : "")}>

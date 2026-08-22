@@ -1,5 +1,5 @@
 {
-  "name": "recipe-planner-backend",
+  "name": "just-in-time-backend",
   "version": "1.0.0",
   "description": "Backend for the expiry-aware recipe planner",
   "main": "server.js",

@@ -17,6 +17,13 @@ const pantryItemSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    // UPC/EAN code from a barcode scan, if the item was added that way.
+    // Not unique — the same product can be added in separate batches.
+    barcode: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     expiryDate: {
       type: Date,
       default: null, // null = no known expiry

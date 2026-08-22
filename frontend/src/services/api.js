@@ -10,6 +10,8 @@ export const addPantryItem = (item) => api.post("/pantry", item).then((r) => r.d
 export const updatePantryItem = (id, updates) =>
   api.put(`/pantry/${id}`, updates).then((r) => r.data);
 export const deletePantryItem = (id) => api.delete(`/pantry/${id}`).then((r) => r.data);
+export const lookupBarcode = (barcode) =>
+  api.get(`/pantry/lookup/${barcode}`).then((r) => r.data);
 
 // Recipes
 export const fetchAllRecipes = () => api.get("/recipes").then((r) => r.data);
