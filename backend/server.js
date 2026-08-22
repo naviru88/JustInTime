@@ -6,6 +6,7 @@ import pantryRoutes from "./routes/pantryRoutes.js";
 import recipeRoutes from "./routes/recipeRoutes.js";
 import groceryRoutes from "./routes/groceryRoutes.js";
 import mealPlanRoutes from "./routes/mealPlanRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import { UPLOAD_DIR } from "./middleware/upload.js";
 
@@ -24,6 +25,7 @@ app.use("/api/pantry", pantryRoutes);
 app.use("/api/recipes", recipeRoutes);
 app.use("/api/grocery", groceryRoutes);
 app.use("/api/mealplan", mealPlanRoutes);
+app.use("/api/auth", authRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

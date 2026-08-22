@@ -14,23 +14,26 @@ function expiryBadge(days) {
 
 function PantryItemPhoto({ item, onPhotoUpload }) {
   const fileInputRef = useRef(null);
-  const photoUrl = resolvePhotoUrl(item.photoUrl);
+  const photos = item.photos || [];
+  const photoUrl = resolvePhotoUrl(photos[0]);
 
   return (
-    <label className="pantry-thumb" title={photoUrl ? "Change photo" : "Add a photo"}>
+    <label className="pantry-thumb" title={photoUrl ? "Add more photos" : "Add a photo"}>
       {photoUrl ? (
         <img src={photoUrl} alt={item.name} />
       ) : (
         <span className="pantry-thumb-placeholder">📷</span>
       )}
+      {photos.length > 1 && <span className="pantry-thumb-count">+{photos.length - 1}</span>}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif"
+        multiple
         hidden
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onPhotoUpload(item._id, file);
+          const files = e.target.files;
+          if (files && files.length > 0) onPhotoUpload(item._id, files);
           e.target.value = "";
         }}
       />

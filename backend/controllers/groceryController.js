@@ -13,7 +13,7 @@ export const generateGrocery = async (req, res, next) => {
 
     const [recipes, pantryItems] = await Promise.all([
       Recipe.find({ _id: { $in: recipeIds } }),
-      PantryItem.find(),
+      PantryItem.find({ user: req.user._id }),
     ]);
 
     if (recipes.length === 0) {

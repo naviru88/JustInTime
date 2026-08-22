@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 
 const pantryItemSchema = new mongoose.Schema(
   {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     name: {
       type: String,
       required: true,
@@ -24,10 +29,10 @@ const pantryItemSchema = new mongoose.Schema(
       default: null,
       trim: true,
     },
-    // Relative path served statically by Express, e.g. "/uploads/xyz.jpg"
-    photoUrl: {
-      type: String,
-      default: null,
+    // Relative paths served statically by Express, e.g. ["/uploads/xyz.jpg"]
+    photos: {
+      type: [String],
+      default: [],
     },
     expiryDate: {
       type: Date,

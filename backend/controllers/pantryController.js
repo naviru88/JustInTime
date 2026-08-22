@@ -4,7 +4,7 @@ import { deletePhotoFile } from "../middleware/upload.js";
 // GET /api/pantry
 export const getPantryItems = async (req, res, next) => {
   try {
-    const items = await PantryItem.find().sort({ expiryDate: 1 });
+    const items = await PantryItem.find({ user: req.user._id }).sort({ expiryDate: 1 });
     res.json(items);
   } catch (err) {
     next(err);
@@ -18,7 +18,14 @@ export const addPantryItem = async (req, res, next) => {
     if (!name) {
       return res.status(400).json({ message: "Ingredient name is required" });
     }
-    const item = await PantryItem.create({ name, quantity, unit, expiryDate, barcode });
+    const item = await PantryItem.create({
+      user: req.user._id,
+      name,
+      quantity,
+      unit,
+      expiryDate,
+      barcode,
+    });
     res.status(201).json(item);
   } catch (err) {
     next(err);
@@ -137,10 +144,11 @@ export const lookupBarcode = async (req, res, next) => {
 // PUT /api/pantry/:id
 export const updatePantryItem = async (req, res, next) => {
   try {
-    const item = await PantryItem.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const item = await PantryItem.findOneAndUpdate(
+      { _id: req.params.id, user: req.user._id },
+      req.body,
+      { new: true, runValidators: true }
+    );
     if (!item) return res.status(404).json({ message: "Item not found" });
     res.json(item);
   } catch (err) {
@@ -151,29 +159,28 @@ export const updatePantryItem = async (req, res, next) => {
 // DELETE /api/pantry/:id
 export const deletePantryItem = async (req, res, next) => {
   try {
-    const item = await PantryItem.findByIdAndDelete(req.params.id);
+    const item = await PantryItem.findOneAndDelete({ _id: req.params.id, user: req.user._id });
     if (!item) return res.status(404).json({ message: "Item not found" });
-    deletePhotoFile(item.photoUrl);
+    item.photos.forEach(deletePhotoFile);
     res.json({ message: "Item removed" });
   } catch (err) {
     next(err);
   }
 };
 
-// PUT /api/pantry/:id/photo  (multipart/form-data, field name "photo")
-export const uploadPantryPhoto = async (req, res, next) => {
+// PUT /api/pantry/:id/photos  (multipart/form-data, field name "photos", multiple allowed)
+export const uploadPantryPhotos = async (req, res, next) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: "A photo file is required" });
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: "At least one photo file is required" });
     }
-    const item = await PantryItem.findById(req.params.id);
+    const item = await PantryItem.findOne({ _id: req.params.id, user: req.user._id });
     if (!item) {
-      deletePhotoFile(`/uploads/${req.file.filename}`);
+      req.files.forEach((f) => deletePhotoFile(`/uploads/${f.filename}`));
       return res.status(404).json({ message: "Item not found" });
     }
 
-    deletePhotoFile(item.photoUrl); // remove the old photo, if any
-    item.photoUrl = `/uploads/${req.file.filename}`;
+    item.photos.push(...req.files.map((f) => `/uploads/${f.filename}`));
     await item.save();
 
     res.json(item);

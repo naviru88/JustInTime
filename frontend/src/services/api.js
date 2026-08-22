@@ -6,10 +6,38 @@ const api = axios.create({
   baseURL: API_URL,
 });
 
+// Called by AuthContext whenever the token changes (login/logout/refresh).
+export const setAuthToken = (token) => {
+  if (token) api.defaults.headers.common.Authorization = `Bearer ${token}`;
+  else delete api.defaults.headers.common.Authorization;
+};
+
 // Uploaded photos are served from the backend's origin at /uploads/..., not
 // under /api, so strip the API suffix to get a base for building full URLs.
 const ASSET_BASE_URL = API_URL.replace(/\/api\/?$/, "");
 export const resolvePhotoUrl = (photoUrl) => (photoUrl ? `${ASSET_BASE_URL}${photoUrl}` : null);
+
+// Auth
+export const signup = (name, email, password) =>
+  api.post("/auth/signup", { name, email, password }).then((r) => r.data);
+export const login = (email, password) =>
+  api.post("/auth/login", { email, password }).then((r) => r.data);
+export const googleLogin = (credential) =>
+  api.post("/auth/google", { credential }).then((r) => r.data);
+export const fetchMe = () => api.get("/auth/me").then((r) => r.data);
+
+// If any request comes back 401 (expired/invalid token), broadcast an event
+// so AuthContext can clear the stale session instead of leaving the UI stuck
+// making authenticated calls that will keep failing.
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      window.dispatchEvent(new CustomEvent("jit:unauthorized"));
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Pantry
 export const fetchPantryItems = () => api.get("/pantry").then((r) => r.data);
@@ -19,10 +47,10 @@ export const updatePantryItem = (id, updates) =>
 export const deletePantryItem = (id) => api.delete(`/pantry/${id}`).then((r) => r.data);
 export const lookupBarcode = (barcode) =>
   api.get(`/pantry/lookup/${barcode}`).then((r) => r.data);
-export const uploadPantryPhoto = (id, file) => {
+export const uploadPantryPhotos = (id, files) => {
   const form = new FormData();
-  form.append("photo", file);
-  return api.put(`/pantry/${id}/photo`, form).then((r) => r.data);
+  Array.from(files).forEach((file) => form.append("photos", file));
+  return api.put(`/pantry/${id}/photos`, form).then((r) => r.data);
 };
 
 // Recipes

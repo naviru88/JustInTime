@@ -7,8 +7,11 @@ import {
   uploadRecipePhoto,
 } from "../controllers/recipeController.js";
 import { uploadPhoto } from "../middleware/upload.js";
+import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
+
+router.use(protect);
 
 // IMPORTANT: /matches must be declared before /:id, otherwise Express
 // will treat "matches" as an :id param and hit getRecipeById instead.

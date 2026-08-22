@@ -10,8 +10,8 @@ export default function PantryItemForm({ onAdd }) {
   const [expiryDate, setExpiryDate] = useState("");
   const [barcode, setBarcode] = useState(null);
 
-  const [photoFile, setPhotoFile] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(null);
+  const [photoFiles, setPhotoFiles] = useState([]);
+  const [photoPreviews, setPhotoPreviews] = useState([]);
   const fileInputRef = useRef(null);
 
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -19,6 +19,7 @@ export default function PantryItemForm({ onAdd }) {
   const menuRef = useRef(null);
   const [lookupStatus, setLookupStatus] = useState(null); // null | "loading" | "not-found" | "error" | "found-estimated"
   const [scanResult, setScanResult] = useState(null); // the looked-up product, shown in the overlay
+  const [batchStatus, setBatchStatus] = useState(null); // summary text after a multi-photo scan
 
   // Close the "Scan" dropdown on an outside click.
   useEffect(() => {
@@ -30,13 +31,13 @@ export default function PantryItemForm({ onAdd }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  // Revoke the object URL whenever it's replaced or the form unmounts, so we
-  // don't leak blob URLs as the user picks several photos in a row.
+  // Revoke the object URLs whenever they're replaced or the form unmounts,
+  // so we don't leak blob URLs as the user picks several photos in a row.
   useEffect(() => {
     return () => {
-      if (photoPreview) URL.revokeObjectURL(photoPreview);
+      photoPreviews.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [photoPreview]);
+  }, [photoPreviews]);
 
   const resetForm = () => {
     setName("");
@@ -46,12 +47,7 @@ export default function PantryItemForm({ onAdd }) {
     setBarcode(null);
     setLookupStatus(null);
     setScanResult(null);
-    setPhotoFile(null);
-    setPhotoPreview((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
-    });
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    clearPhotos();
   };
 
   const handleSubmit = (e) => {
@@ -66,32 +62,34 @@ export default function PantryItemForm({ onAdd }) {
         expiryDate: expiryDate || null,
         barcode,
       },
-      photoFile
+      photoFiles
     );
 
     resetForm();
   };
 
-  const clearPhoto = () => {
-    setPhotoFile(null);
-    setPhotoPreview((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
+  const clearPhotos = () => {
+    setPhotoFiles([]);
+    setPhotoPreviews((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return [];
     });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handlePhotoChange = (e) => {
-    const file = e.target.files?.[0] || null;
-    setPhotoFile(file);
-    setPhotoPreview((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return file ? URL.createObjectURL(file) : null;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setPhotoFiles(files);
+    setPhotoPreviews((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return files.map((file) => URL.createObjectURL(file));
     });
   };
 
   const handleDetected = useCallback(async (code) => {
     setScannerOpen(false);
+    setBatchStatus(null);
     setBarcode(code);
     setLookupStatus("loading");
     try {
@@ -107,6 +105,49 @@ export default function PantryItemForm({ onAdd }) {
     }
   }, []);
 
+  // Several barcode photos picked at once — look each one up and add every
+  // match straight to the pantry (no per-item confirmation), so the list
+  // fills in automatically as each lookup resolves.
+  const handleDetectedBatch = useCallback(
+    async ({ codes, unreadable }) => {
+      setScannerOpen(false);
+      setLookupStatus(null);
+      setBatchStatus(`Looking up ${codes.length} barcode${codes.length === 1 ? "" : "s"}...`);
+
+      let added = 0;
+      let notFound = 0;
+      for (const code of codes) {
+        try {
+          const result = await lookupBarcode(code);
+          if (result.found) {
+            onAdd(
+              {
+                name: result.name,
+                quantity: result.quantity ?? 1,
+                unit: result.unit || "",
+                expiryDate: result.expiryDate || null,
+                barcode: result.barcode,
+              },
+              []
+            );
+            added += 1;
+          } else {
+            notFound += 1;
+          }
+        } catch {
+          notFound += 1;
+        }
+      }
+
+      const skipped = unreadable + notFound;
+      setBatchStatus(
+        `Added ${added} item${added === 1 ? "" : "s"} from photos` +
+          (skipped > 0 ? ` — ${skipped} couldn't be matched.` : ".")
+      );
+    },
+    [onAdd]
+  );
+
   // "Add to pantry" in the overlay — skips the form entirely.
   const handleQuickAdd = () => {
     if (!scanResult) return;
@@ -118,7 +159,7 @@ export default function PantryItemForm({ onAdd }) {
         expiryDate: scanResult.expiryDate || null,
         barcode: scanResult.barcode,
       },
-      null
+      []
     );
     setScanResult(null);
     resetForm();
@@ -147,10 +188,10 @@ export default function PantryItemForm({ onAdd }) {
             type="button"
             className="scan-button"
             onClick={() => setMenuOpen((o) => !o)}
-            title="Scan a barcode or attach a photo"
+            title="Scan a barcode or attach photos"
           >
-            {photoPreview ? (
-              <img src={photoPreview} alt="" className="scan-button-thumb" />
+            {photoPreviews[0] ? (
+              <img src={photoPreviews[0]} alt="" className="scan-button-thumb" />
             ) : (
               "📷"
             )}{" "}
@@ -177,19 +218,19 @@ export default function PantryItemForm({ onAdd }) {
                   fileInputRef.current?.click();
                 }}
               >
-                🖼️ Upload photo
+                🖼️ Upload photo(s)
               </button>
-              {photoFile && (
+              {photoFiles.length > 0 && (
                 <button
                   type="button"
                   role="menuitem"
                   className="scan-menu-remove"
                   onClick={() => {
                     setMenuOpen(false);
-                    clearPhoto();
+                    clearPhotos();
                   }}
                 >
-                  ✕ Remove photo
+                  ✕ Remove photo{photoFiles.length > 1 ? "s" : ""}
                 </button>
               )}
             </div>
@@ -199,6 +240,7 @@ export default function PantryItemForm({ onAdd }) {
             ref={fileInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
+            multiple
             onChange={handlePhotoChange}
             hidden
           />
@@ -241,12 +283,20 @@ export default function PantryItemForm({ onAdd }) {
         </p>
       )}
 
-      {photoFile && !lookupStatus && (
-        <p className="scan-status">Photo attached — it'll be added with this item.</p>
+      {batchStatus && <p className="scan-status">{batchStatus}</p>}
+
+      {photoFiles.length > 0 && !lookupStatus && !batchStatus && (
+        <p className="scan-status">
+          {photoFiles.length} photo{photoFiles.length > 1 ? "s" : ""} attached — they'll be added with this item.
+        </p>
       )}
 
       {scannerOpen && (
-        <BarcodeScanner onDetect={handleDetected} onClose={() => setScannerOpen(false)} />
+        <BarcodeScanner
+          onDetect={handleDetected}
+          onDetectBatch={handleDetectedBatch}
+          onClose={() => setScannerOpen(false)}
+        />
       )}
 
       {scanResult && (

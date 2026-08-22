@@ -5,17 +5,20 @@ import {
   updatePantryItem,
   deletePantryItem,
   lookupBarcode,
-  uploadPantryPhoto,
+  uploadPantryPhotos,
 } from "../controllers/pantryController.js";
 import { uploadPhoto } from "../middleware/upload.js";
+import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
+
+router.use(protect);
 
 router.route("/").get(getPantryItems).post(addPantryItem);
 // Above "/:id" — "/lookup/:barcode" has two segments so it can't collide,
 // but keeping the more specific route first is the safer habit.
 router.get("/lookup/:barcode", lookupBarcode);
-router.put("/:id/photo", uploadPhoto.single("photo"), uploadPantryPhoto);
+router.put("/:id/photos", uploadPhoto.array("photos", 10), uploadPantryPhotos);
 router.route("/:id").put(updatePantryItem).delete(deletePantryItem);
 
 export default router;

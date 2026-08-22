@@ -29,7 +29,7 @@ export const getRecipeById = async (req, res, next) => {
 // Optional query params: ?tags=vegetarian,vegan  to filter by dietary tags first
 export const getMatchedRecipes = async (req, res, next) => {
   try {
-    const pantryItems = await PantryItem.find();
+    const pantryItems = await PantryItem.find({ user: req.user._id });
 
     let recipeQuery = {};
     if (req.query.tags) {

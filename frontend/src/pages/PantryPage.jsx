@@ -5,7 +5,7 @@ import {
   fetchPantryItems,
   addPantryItem,
   deletePantryItem,
-  uploadPantryPhoto,
+  uploadPantryPhotos,
 } from "../services/api.js";
 
 export default function PantryPage() {
@@ -30,16 +30,16 @@ export default function PantryPage() {
     loadItems();
   }, []);
 
-  const handleAdd = async (item, photoFile) => {
+  const handleAdd = async (item, photoFiles) => {
     const created = await addPantryItem(item);
     setItems((prev) => [...prev, created]);
 
-    if (photoFile) {
+    if (photoFiles && photoFiles.length > 0) {
       try {
-        const withPhoto = await uploadPantryPhoto(created._id, photoFile);
-        setItems((prev) => prev.map((i) => (i._id === withPhoto._id ? withPhoto : i)));
+        const withPhotos = await uploadPantryPhotos(created._id, photoFiles);
+        setItems((prev) => prev.map((i) => (i._id === withPhotos._id ? withPhotos : i)));
       } catch {
-        // The item is already saved without a photo — surface this softly
+        // The item is already saved without photos — surface this softly
         // rather than losing the whole add because the image upload failed.
         setError("Item added, but the photo upload failed. You can retry it from the list.");
       }
@@ -51,9 +51,9 @@ export default function PantryPage() {
     setItems((prev) => prev.filter((i) => i._id !== id));
   };
 
-  const handlePhotoUpload = async (id, file) => {
+  const handlePhotoUpload = async (id, files) => {
     try {
-      const updated = await uploadPantryPhoto(id, file);
+      const updated = await uploadPantryPhotos(id, files);
       setItems((prev) => prev.map((i) => (i._id === updated._id ? updated : i)));
     } catch {
       setError("Couldn't upload that photo. Try again.");

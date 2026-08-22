@@ -16,6 +16,7 @@ export const getMealPlan = async (req, res, next) => {
     }
 
     const entries = await MealPlan.find({
+      user: req.user._id,
       date: { $gte: toDayStart(start), $lte: toDayStart(end) },
     })
       .populate("recipe", "title tags")
@@ -30,7 +31,7 @@ export const getMealPlan = async (req, res, next) => {
 // POST /api/mealplan  { date, mealType, recipeId }
 // Adds a recipe to the slot. A slot can hold several recipes (e.g. a main + a
 // side); adding the same recipe to the same slot twice is a no-op (upsert on
-// the date+mealType+recipe key) rather than an error.
+// the user+date+mealType+recipe key) rather than an error.
 export const setMealSlot = async (req, res, next) => {
   try {
     const { date, mealType, recipeId } = req.body;
@@ -39,8 +40,8 @@ export const setMealSlot = async (req, res, next) => {
     }
 
     const entry = await MealPlan.findOneAndUpdate(
-      { date: toDayStart(date), mealType, recipe: recipeId },
-      { date: toDayStart(date), mealType, recipe: recipeId },
+      { user: req.user._id, date: toDayStart(date), mealType, recipe: recipeId },
+      { user: req.user._id, date: toDayStart(date), mealType, recipe: recipeId },
       { new: true, upsert: true, runValidators: true }
     ).populate("recipe", "title tags");
 
@@ -53,7 +54,7 @@ export const setMealSlot = async (req, res, next) => {
 // DELETE /api/mealplan/:id
 export const clearMealSlot = async (req, res, next) => {
   try {
-    const entry = await MealPlan.findByIdAndDelete(req.params.id);
+    const entry = await MealPlan.findOneAndDelete({ _id: req.params.id, user: req.user._id });
     if (!entry) return res.status(404).json({ message: "Meal plan entry not found" });
     res.json({ message: "Slot cleared" });
   } catch (err) {

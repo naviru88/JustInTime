@@ -1,21 +1,25 @@
 import { useEffect, useRef, useState } from "react";
+import { BrowserMultiFormatReader } from "@zxing/browser";
+import { NotFoundException } from "@zxing/library";
 
-// Camera-based barcode scanner. Uses the native BarcodeDetector API where
-// available (Chrome/Edge/Android, and Safari 16.4+); everywhere else it
-// falls back to a manual numeric-entry field so scanning is never a hard
-// requirement to add a pantry item.
-export default function BarcodeScanner({ onDetect, onClose }) {
+// Camera-based barcode scanner. Live scanning uses the native BarcodeDetector
+// API where available (Chrome/Edge/Android, and Safari 16.4+); everywhere
+// else it falls back to a manual numeric-entry field. Decoding from an
+// uploaded photo instead uses zxing-js, which runs in plain JS against a
+// canvas — that works in every modern browser regardless of BarcodeDetector
+// support, so "upload a photo" is never a Chromium-only option.
+export default function BarcodeScanner({ onDetect, onDetectBatch, onClose }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const rafRef = useRef(null);
   const detectedRef = useRef(false);
+  const zxingReaderRef = useRef(null);
 
   const [supported] = useState(() => "BarcodeDetector" in window);
   const [cameraError, setCameraError] = useState(null);
   const [manualCode, setManualCode] = useState("");
   const photoInputRef = useRef(null);
-  const [photoDecoding, setPhotoDecoding] = useState(false);
-  const [photoError, setPhotoError] = useState(null);
+  const [photoDecoding, setPhotoDecoding] = useState(null); // null | "Reading..." string | { error }
 
   useEffect(() => {
     if (!supported) return undefined;
@@ -76,42 +80,71 @@ export default function BarcodeScanner({ onDetect, onClose }) {
     };
   }, [supported, onDetect]);
 
+  const getZxingReader = () => {
+    if (!zxingReaderRef.current) zxingReaderRef.current = new BrowserMultiFormatReader();
+    return zxingReaderRef.current;
+  };
+
+  // Decodes one image file to a barcode string, or null if none was found.
+  const decodePhoto = async (file) => {
+    const url = URL.createObjectURL(file);
+    try {
+      const result = await getZxingReader().decodeFromImageUrl(url);
+      return result.getText();
+    } catch (err) {
+      if (err instanceof NotFoundException) return null;
+      throw err;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  };
+
   const handleManualSubmit = (e) => {
     e.preventDefault();
     if (manualCode.trim()) onDetect(manualCode.trim());
   };
 
   const handlePhotoPick = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // allow picking the same file again after a miss
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    e.target.value = ""; // allow picking the same file(s) again after a miss
 
-    setPhotoError(null);
-    setPhotoDecoding(true);
+    if (files.length === 0) return;
+
+    setPhotoDecoding(files.length > 1 ? `Reading ${files.length} photos...` : "Reading photo...");
     try {
-      const detector = new window.BarcodeDetector({
-        formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"],
-      });
-      // File is a Blob, which BarcodeDetector.detect() accepts directly —
-      // no need to round-trip through a canvas or <img> element.
-      const codes = await detector.detect(file);
-      if (codes.length > 0) {
-        detectedRef.current = true;
-        onDetect(codes[0].rawValue);
-      } else {
-        setPhotoError("Couldn't find a barcode in that photo. Try a clearer, closer shot.");
+      const codes = [];
+      let unreadable = 0;
+      for (const file of files) {
+        try {
+          const code = await decodePhoto(file);
+          if (code) codes.push(code);
+          else unreadable += 1;
+        } catch {
+          unreadable += 1;
+        }
       }
-    } catch {
-      setPhotoError("Couldn't read that photo. Try a different one.");
+
+      if (files.length === 1) {
+        if (codes.length === 1) {
+          detectedRef.current = true;
+          onDetect(codes[0]);
+        } else {
+          setPhotoDecoding({ error: "Couldn't find a barcode in that photo. Try a clearer, closer shot." });
+        }
+      } else if (codes.length === 0) {
+        setPhotoDecoding({ error: "Couldn't find a barcode in any of those photos." });
+      } else {
+        detectedRef.current = true;
+        onDetectBatch({ codes, unreadable });
+      }
     } finally {
-      setPhotoDecoding(false);
+      setPhotoDecoding((prev) => (prev && prev.error ? prev : null));
     }
   };
 
+  const photoError = photoDecoding && typeof photoDecoding === "object" ? photoDecoding.error : null;
+  const photoLabel = typeof photoDecoding === "string" ? photoDecoding : "🖼️ Upload photo(s) of a barcode";
   const showManualFallback = !supported || cameraError;
-  // Decoding from a still photo uses the same BarcodeDetector API as the
-  // live scan, so it's only offered where that API actually exists.
-  const showPhotoUpload = supported;
 
   return (
     <div className="scanner-overlay" onClick={onClose}>
@@ -147,29 +180,27 @@ export default function BarcodeScanner({ onDetect, onClose }) {
           </form>
         )}
 
-        {showPhotoUpload && (
-          <>
-            <div className="scanner-divider">or</div>
-            <div className="scanner-upload">
-              <button
-                type="button"
-                className="scanner-upload-btn"
-                onClick={() => photoInputRef.current?.click()}
-                disabled={photoDecoding}
-              >
-                {photoDecoding ? "Reading photo..." : "🖼️ Upload a photo of the barcode"}
-              </button>
-              {photoError && <p className="scanner-upload-hint is-error">{photoError}</p>}
-              <input
-                ref={photoInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoPick}
-                hidden
-              />
-            </div>
-          </>
-        )}
+        <div className="scanner-divider">or</div>
+        <div className="scanner-upload">
+          <button
+            type="button"
+            className="scanner-upload-btn"
+            onClick={() => photoInputRef.current?.click()}
+            disabled={typeof photoDecoding === "string"}
+          >
+            {photoLabel}
+          </button>
+          <p className="scanner-upload-hint">Pick one photo to scan it now, or several to add them all at once.</p>
+          {photoError && <p className="scanner-upload-hint is-error">{photoError}</p>}
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handlePhotoPick}
+            hidden
+          />
+        </div>
       </div>
     </div>
   );
