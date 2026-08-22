@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import PantryItemForm from "../components/pantry/PantryItemForm.jsx";
 import PantryList from "../components/pantry/PantryList.jsx";
-import { fetchPantryItems, addPantryItem, deletePantryItem } from "../services/api.js";
+import {
+  fetchPantryItems,
+  addPantryItem,
+  deletePantryItem,
+  uploadPantryPhoto,
+} from "../services/api.js";
 
 export default function PantryPage() {
   const [items, setItems] = useState([]);
@@ -25,14 +30,34 @@ export default function PantryPage() {
     loadItems();
   }, []);
 
-  const handleAdd = async (item) => {
+  const handleAdd = async (item, photoFile) => {
     const created = await addPantryItem(item);
     setItems((prev) => [...prev, created]);
+
+    if (photoFile) {
+      try {
+        const withPhoto = await uploadPantryPhoto(created._id, photoFile);
+        setItems((prev) => prev.map((i) => (i._id === withPhoto._id ? withPhoto : i)));
+      } catch {
+        // The item is already saved without a photo — surface this softly
+        // rather than losing the whole add because the image upload failed.
+        setError("Item added, but the photo upload failed. You can retry it from the list.");
+      }
+    }
   };
 
   const handleDelete = async (id) => {
     await deletePantryItem(id);
     setItems((prev) => prev.filter((i) => i._id !== id));
+  };
+
+  const handlePhotoUpload = async (id, file) => {
+    try {
+      const updated = await uploadPantryPhoto(id, file);
+      setItems((prev) => prev.map((i) => (i._id === updated._id ? updated : i)));
+    } catch {
+      setError("Couldn't upload that photo. Try again.");
+    }
   };
 
   return (
@@ -46,7 +71,7 @@ export default function PantryPage() {
 
       {loading && <p>Loading pantry...</p>}
       {error && <p style={{ color: "#c1440e" }}>{error}</p>}
-      {!loading && !error && <PantryList items={items} onDelete={handleDelete} />}
+      {!loading && !error && <PantryList items={items} onDelete={handleDelete} onPhotoUpload={handlePhotoUpload} />}
     </div>
   );
 }

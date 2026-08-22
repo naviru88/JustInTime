@@ -49,6 +49,12 @@ export default function RecipesPage() {
     setGroceryData(null); // stale selection invalidates the previous list
   };
 
+  const handlePhotoUpdated = (updatedRecipe) => {
+    setResults((prev) =>
+      prev.map((r) => (r.recipe._id === updatedRecipe._id ? { ...r, recipe: updatedRecipe } : r))
+    );
+  };
+
   const handleGenerateGroceryList = async () => {
     if (selectedIds.size === 0) return;
     try {
@@ -112,6 +118,7 @@ export default function RecipesPage() {
                 key={r.recipe._id}
                 selected={selectedIds.has(r.recipe._id)}
                 onToggleSelect={toggleSelect}
+                onPhotoUpdated={handlePhotoUpdated}
               />
             ))}
           </div>

@@ -85,20 +85,70 @@ h1 {
   margin-bottom: 12px;
 }
 
+.scan-menu-wrap {
+  position: relative;
+}
+
 .scan-button {
-  background: var(--color-surface);
-  color: var(--color-ink);
-  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-ink);
+  color: #fff;
+  border: none;
   border-radius: 8px;
   padding: 10px 14px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  height: 100%;
 }
 
 .scan-button:hover {
-  opacity: 0.85;
+  opacity: 0.88;
+}
+
+.scan-button-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.scan-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  min-width: 170px;
+  overflow: hidden;
+}
+
+.scan-menu button {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.scan-menu button:hover {
+  background: #f1efe9;
+}
+
+.scan-menu-remove {
+  color: var(--color-urgent);
+  border-top: 1px solid var(--color-border);
 }
 
 .scan-status {
@@ -107,7 +157,8 @@ h1 {
   color: var(--color-muted);
 }
 
-.scan-status-found {
+.scan-status-found,
+.scan-status-found-estimated {
   color: var(--color-accent);
 }
 
@@ -215,6 +266,180 @@ h1 {
   cursor: not-allowed;
 }
 
+.scanner-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  color: var(--color-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.scanner-divider::before,
+.scanner-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.scanner-upload {
+  margin: 12px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scanner-upload-btn {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.scanner-upload-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.scanner-upload-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.scanner-upload-hint {
+  font-size: 12px;
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.scanner-upload-hint.is-error {
+  color: var(--color-urgent);
+}
+
+/* Scan-result overlay: shown after a successful barcode lookup so the
+   person can add the item straight from the scan, no manual typing. */
+.scan-result-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.scan-result-modal {
+  background: var(--color-surface);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 380px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.scan-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.scan-result-close {
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--color-muted);
+  padding: 0 4px;
+}
+
+.scan-result-close:hover {
+  color: var(--color-urgent);
+}
+
+.scan-result-body {
+  display: flex;
+  gap: 14px;
+  padding: 18px 16px;
+}
+
+.scan-result-photo {
+  width: 76px;
+  height: 76px;
+  border-radius: 8px;
+  object-fit: contain;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.scan-result-photo-placeholder {
+  width: 76px;
+  height: 76px;
+  border-radius: 8px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+
+.scan-result-info h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  text-transform: capitalize;
+}
+
+.scan-result-info p {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.scan-result-estimate {
+  color: var(--color-warn) !important;
+}
+
+.scan-result-actions {
+  display: flex;
+  gap: 10px;
+  padding: 0 16px 18px;
+}
+
+.scan-result-actions .btn-secondary {
+  flex: 1;
+  text-align: center;
+}
+
+.scan-result-add {
+  flex: 2;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.scan-result-add:hover {
+  opacity: 0.88;
+}
+
 .pantry-form input {
   padding: 10px 12px;
   border: 1px solid var(--color-border);
@@ -223,7 +448,7 @@ h1 {
   background: var(--color-surface);
 }
 
-.pantry-form button,
+.pantry-form > button,
 .btn {
   background: var(--color-ink);
   color: #fff;
@@ -235,7 +460,7 @@ h1 {
   cursor: pointer;
 }
 
-.pantry-form button:hover,
+.pantry-form > button:hover,
 .btn:hover {
   opacity: 0.88;
 }
@@ -273,6 +498,37 @@ h1 {
   border: 1px solid var(--color-border);
   border-radius: 8px;
   background: var(--color-surface);
+}
+
+.pantry-item-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pantry-thumb {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: #f1efe9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.pantry-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pantry-thumb-placeholder {
+  font-size: 16px;
+  opacity: 0.5;
 }
 
 .pantry-item .name {
@@ -348,6 +604,48 @@ h1 {
 .recipe-card h3 {
   margin: 0;
   font-size: 17px;
+}
+
+.recipe-photo-wrap {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #f1efe9;
+  cursor: pointer;
+  margin: -18px -18px 0;
+  width: calc(100% + 36px);
+  border-top-left-radius: var(--radius);
+  border-top-right-radius: var(--radius);
+}
+
+.recipe-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.recipe-photo-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.recipe-photo-uploading {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .match-reason {

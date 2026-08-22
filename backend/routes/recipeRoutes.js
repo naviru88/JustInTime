@@ -4,7 +4,9 @@ import {
   getRecipeById,
   getMatchedRecipes,
   createRecipe,
+  uploadRecipePhoto,
 } from "../controllers/recipeController.js";
+import { uploadPhoto } from "../middleware/upload.js";
 
 const router = express.Router();
 
@@ -13,6 +15,7 @@ const router = express.Router();
 router.get("/matches", getMatchedRecipes);
 
 router.route("/").get(getAllRecipes).post(createRecipe);
+router.put("/:id/photo", uploadPhoto.single("photo"), uploadRecipePhoto);
 router.route("/:id").get(getRecipeById);
 
 export default router;

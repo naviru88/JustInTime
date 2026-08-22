@@ -7,6 +7,7 @@ import recipeRoutes from "./routes/recipeRoutes.js";
 import groceryRoutes from "./routes/groceryRoutes.js";
 import mealPlanRoutes from "./routes/mealPlanRoutes.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
+import { UPLOAD_DIR } from "./middleware/upload.js";
 
 dotenv.config();
 connectDB();
@@ -15,6 +16,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use("/uploads", express.static(UPLOAD_DIR));
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
