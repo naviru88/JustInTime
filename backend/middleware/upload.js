@@ -36,11 +36,21 @@ export const uploadPhoto = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
 });
 
+// For endpoints that only need to analyze an image in-memory (e.g. photo
+// recognition) rather than persist it — nothing touches disk here.
+export const uploadPhotoMemory = multer({
+  storage: multer.memoryStorage(),
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+});
+
 // Deletes a previously-uploaded photo when it's being replaced or the
 // parent record is removed. Swallows errors — a missing/already-gone file
-// shouldn't block the request.
+// shouldn't block the request. No-ops for external URLs (e.g. an
+// auto-fetched Openverse photo) since there's nothing on local disk for
+// those to begin with.
 export const deletePhotoFile = (photoUrl) => {
-  if (!photoUrl) return;
+  if (!photoUrl || /^https?:\/\//i.test(photoUrl)) return;
   const filename = path.basename(photoUrl);
   fs.unlink(path.join(UPLOAD_DIR, filename), () => {});
 };

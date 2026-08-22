@@ -4,21 +4,21 @@ import {
   getRecipeById,
   getMatchedRecipes,
   createRecipe,
-  uploadRecipePhoto,
+  generateRecipes,
+  deleteRecipe,
 } from "../controllers/recipeController.js";
-import { uploadPhoto } from "../middleware/upload.js";
 import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
 
 router.use(protect);
 
-// IMPORTANT: /matches must be declared before /:id, otherwise Express
-// will treat "matches" as an :id param and hit getRecipeById instead.
+// IMPORTANT: /matches and /generate must be declared before /:id, otherwise
+// Express will treat them as an :id param and hit getRecipeById instead.
 router.get("/matches", getMatchedRecipes);
+router.post("/generate", generateRecipes);
 
 router.route("/").get(getAllRecipes).post(createRecipe);
-router.put("/:id/photo", uploadPhoto.single("photo"), uploadRecipePhoto);
-router.route("/:id").get(getRecipeById);
+router.route("/:id").get(getRecipeById).delete(deleteRecipe);
 
 export default router;

@@ -1,5 +1,7 @@
 import PantryItem from "../models/PantryItem.js";
 import { deletePhotoFile } from "../middleware/upload.js";
+import { estimateShelfLifeDays, expiryDateFromToday } from "../services/shelfLifeEstimator.js";
+import { identifyPantryItemsFromPhotos } from "../services/visionService.js";
 
 // GET /api/pantry
 export const getPantryItems = async (req, res, next) => {
@@ -50,37 +52,6 @@ const parseQuantity = (quantityText) => {
   return { amount: null, unit: "" };
 };
 
-// Rough shelf-life estimates (days from today) keyed by Open Food Facts
-// category tags, ordered most-specific-first since a product usually
-// matches several tags and we want the most food-relevant one to win.
-// This is deliberately a coarse heuristic, not food-safety guidance — the
-// UI labels it as an estimate the person should double-check.
-const SHELF_LIFE_BY_CATEGORY = [
-  { days: 2, keywords: ["seafood", "fish", "shellfish", "sushi"] },
-  { days: 4, keywords: ["meat", "poultry", "beef", "pork", "sausage", "deli"] },
-  { days: 6, keywords: ["fresh-vegetables", "fresh-fruits", "vegetables", "fruits", "salad"] },
-  { days: 5, keywords: ["bread", "bakery", "pastries"] },
-  { days: 10, keywords: ["dairies", "cheese", "yogurt", "yoghurt", "milk", "cream"] },
-  { days: 21, keywords: ["egg"] },
-  { days: 30, keywords: ["beverages", "juice", "soft-drink", "soda"] },
-  { days: 90, keywords: ["snack", "chip", "cracker", "biscuit"] },
-  { days: 180, keywords: ["frozen"] },
-  { days: 180, keywords: ["sauce", "condiment", "oil", "dressing"] },
-  { days: 270, keywords: ["pasta", "rice", "grain", "cereal", "flour"] },
-  { days: 365, keywords: ["canned", "tinned", "preserve", "spice", "herb"] },
-];
-const DEFAULT_SHELF_LIFE_DAYS = 14;
-
-const estimateShelfLifeDays = (categoriesTags = []) => {
-  const tags = categoriesTags.map((t) => t.toLowerCase());
-  for (const { keywords, days } of SHELF_LIFE_BY_CATEGORY) {
-    if (keywords.some((kw) => tags.some((tag) => tag.includes(kw)))) return days;
-  }
-  return DEFAULT_SHELF_LIFE_DAYS;
-};
-
-const toISODate = (date) => date.toISOString().slice(0, 10);
-
 // GET /api/pantry/lookup/:barcode
 // Looks up a scanned UPC/EAN against Open Food Facts (no API key needed) so
 // the pantry form can prefill a name/unit instead of the user typing it.
@@ -119,7 +90,7 @@ export const lookupBarcode = async (req, res, next) => {
     } = payload.product;
     const { amount, unit } = parseQuantity(quantity);
     const shelfLifeDays = estimateShelfLifeDays(categories_tags);
-    const expiryDate = toISODate(new Date(Date.now() + shelfLifeDays * 24 * 60 * 60 * 1000));
+    const expiryDate = expiryDateFromToday(shelfLifeDays);
 
     res.json({
       found: true,
@@ -168,7 +139,46 @@ export const deletePantryItem = async (req, res, next) => {
   }
 };
 
-// PUT /api/pantry/:id/photos  (multipart/form-data, field name "photos", multiple allowed)
+// POST /api/pantry/recognize-photos  (multipart/form-data, field name "photos")
+// Runs each photo through vision recognition and returns a list of detected
+// food items with an estimated expiry — nothing is saved to the pantry yet,
+// the frontend shows these for review before adding.
+export const recognizePantryPhotos = async (req, res, next) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: "At least one photo file is required" });
+    }
+
+    const photos = req.files.map((f) => ({ data: f.buffer, mimeType: f.mimetype }));
+
+    let detected;
+    try {
+      detected = await identifyPantryItemsFromPhotos(photos);
+    } catch (visionErr) {
+      if (visionErr.message?.includes("ANTHROPIC_API_KEY")) {
+        return res.status(500).json({
+          message: "Photo recognition isn't configured on this server yet.",
+        });
+      }
+      throw visionErr;
+    }
+
+    const items = detected.map((item) => {
+      const shelfLifeDays = estimateShelfLifeDays(item.category, item.name);
+      return {
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        expiryDate: expiryDateFromToday(shelfLifeDays),
+        estimatedExpiry: true,
+      };
+    });
+
+    res.json({ items });
+  } catch (err) {
+    next(err);
+  }
+};
 export const uploadPantryPhotos = async (req, res, next) => {
   try {
     if (!req.files || req.files.length === 0) {

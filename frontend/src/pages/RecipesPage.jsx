@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import RecipeCard from "../components/recipes/RecipeCard.jsx";
 import GroceryList from "../components/recipes/GroceryList.jsx";
-import { fetchMatchedRecipes, generateGroceryList } from "../services/api.js";
+import {
+  fetchMatchedRecipes,
+  generateGroceryList,
+  generateRecipes,
+  deleteRecipe,
+} from "../services/api.js";
 
 const DIETARY_TAGS = [
   { value: "vegetarian", label: "Vegetarian" },
@@ -20,8 +25,14 @@ export default function RecipesPage() {
   const [groceryLoading, setGroceryLoading] = useState(false);
   const [groceryError, setGroceryError] = useState(null);
 
-  useEffect(() => {
-    setLoading(true);
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState(null);
+  const [generateStatus, setGenerateStatus] = useState(null);
+
+  const [deletingId, setDeletingId] = useState(null);
+  const [deleteError, setDeleteError] = useState(null);
+
+  const loadMatches = () =>
     fetchMatchedRecipes(activeTags)
       .then((data) => {
         setResults(data);
@@ -29,6 +40,11 @@ export default function RecipesPage() {
       })
       .catch(() => setError("Couldn't load recipe matches. Is the backend running?"))
       .finally(() => setLoading(false));
+
+  useEffect(() => {
+    setLoading(true);
+    loadMatches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTags]);
 
   const toggleTag = (tag) => {
@@ -49,10 +65,24 @@ export default function RecipesPage() {
     setGroceryData(null); // stale selection invalidates the previous list
   };
 
-  const handlePhotoUpdated = (updatedRecipe) => {
-    setResults((prev) =>
-      prev.map((r) => (r.recipe._id === updatedRecipe._id ? { ...r, recipe: updatedRecipe } : r))
-    );
+  const handleDeleteRecipe = async (id) => {
+    setDeleteError(null);
+    setDeletingId(id);
+    try {
+      await deleteRecipe(id);
+      setResults((prev) => prev.filter((r) => r.recipe._id !== id));
+      setSelectedIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      setGroceryData(null); // a deleted recipe may have been part of the last list
+    } catch {
+      setDeleteError("Couldn't remove that recipe. Try again.");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const handleGenerateGroceryList = async () => {
@@ -69,6 +99,26 @@ export default function RecipesPage() {
     }
   };
 
+  const handleGenerateRecipes = async () => {
+    setGenerating(true);
+    setGenerateError(null);
+    setGenerateStatus(null);
+    try {
+      const created = await generateRecipes(activeTags);
+      setGenerateStatus(
+        `Added ${created.length} new recipe${created.length === 1 ? "" : "s"} from your pantry.`
+      );
+      setLoading(true);
+      await loadMatches();
+    } catch (err) {
+      setGenerateError(
+        err.response?.data?.message || "Couldn't generate recipes right now. Try again."
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   return (
     <div>
       <h1>Suggested recipes</h1>
@@ -76,6 +126,15 @@ export default function RecipesPage() {
         Ranked by what uses your soonest-to-expire ingredients first. Select a few to build a
         grocery list for what you're missing.
       </p>
+
+      <div className="generate-recipes-bar">
+        <button className="btn" onClick={handleGenerateRecipes} disabled={generating}>
+          {generating ? "Generating..." : "✨ Generate recipes from my pantry"}
+        </button>
+        {generateStatus && <span className="generate-status">{generateStatus}</span>}
+      </div>
+      {generateError && <p style={{ color: "#c1440e" }}>{generateError}</p>}
+      {deleteError && <p style={{ color: "#c1440e" }}>{deleteError}</p>}
 
       <div className="dietary-filters">
         {DIETARY_TAGS.map((t) => (
@@ -104,8 +163,8 @@ export default function RecipesPage() {
 
       {!loading && !error && results.length === 0 && activeTags.length === 0 && (
         <div className="empty-state">
-          No recipes yet. Run <code>npm run seed</code> in the backend folder to load starter
-          recipes.
+          No recipes yet. Click "Generate recipes from my pantry" above, or run{" "}
+          <code>npm run seed</code> in the backend folder to load starter recipes.
         </div>
       )}
 
@@ -118,7 +177,8 @@ export default function RecipesPage() {
                 key={r.recipe._id}
                 selected={selectedIds.has(r.recipe._id)}
                 onToggleSelect={toggleSelect}
-                onPhotoUpdated={handlePhotoUpdated}
+                onDelete={handleDeleteRecipe}
+                deleting={deletingId === r.recipe._id}
               />
             ))}
           </div>

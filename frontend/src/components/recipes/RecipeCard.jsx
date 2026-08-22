@@ -1,53 +1,27 @@
-import { useRef, useState } from "react";
-import { resolvePhotoUrl, uploadRecipePhoto } from "../../services/api.js";
+import { useState } from "react";
 
-export default function RecipeCard({ result, selected, onToggleSelect, onPhotoUpdated }) {
+export default function RecipeCard({
+  result,
+  selected,
+  onToggleSelect,
+  onDelete,
+  deleting,
+}) {
   const { recipe, matchedIngredients, missingIngredients, usesExpiringSoon } = result;
-  const fileInputRef = useRef(null);
-  const [uploading, setUploading] = useState(false);
+  const [stepsOpen, setStepsOpen] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const expiringCount = matchedIngredients.filter(
     (m) => m.daysUntilExpiry !== null && m.daysUntilExpiry <= 2 && m.daysUntilExpiry >= 0
   ).length;
 
-  const photoUrl = resolvePhotoUrl(recipe.photoUrl);
-
-  const handlePhotoChange = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setUploading(true);
-    try {
-      const updated = await uploadRecipePhoto(recipe._id, file);
-      onPhotoUpdated(updated);
-    } catch {
-      // Silently leave the previous photo in place; the recipe grid isn't
-      // the place for a persistent error banner over one thumbnail.
-    } finally {
-      setUploading(false);
-    }
-  };
-
   return (
     <div className={`recipe-card ${selected ? "selected" : ""}`}>
-      <label className="recipe-photo-wrap" title={photoUrl ? "Change photo" : "Add a photo"}>
-        {photoUrl ? (
-          <img src={photoUrl} alt={recipe.title} className="recipe-photo" />
-        ) : (
-          <span className="recipe-photo-placeholder">🍽️ Add a photo</span>
-        )}
-        {uploading && <span className="recipe-photo-uploading">Uploading...</span>}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          hidden
-          onChange={handlePhotoChange}
-        />
-      </label>
-
       <div className="recipe-card-header">
-        <h3>{recipe.title}</h3>
+        <h3>
+          {recipe.title}
+          {recipe.source === "generated" && <span className="ai-badge">✨ AI generated</span>}
+        </h3>
         <label className="select-checkbox">
           <input
             type="checkbox"
@@ -75,6 +49,57 @@ export default function RecipeCard({ result, selected, onToggleSelect, onPhotoUp
             + {name}
           </span>
         ))}
+      </div>
+
+      {recipe.steps?.length > 0 && (
+        <div className="recipe-steps-wrap">
+          <button
+            type="button"
+            className="recipe-steps-toggle"
+            onClick={() => setStepsOpen((o) => !o)}
+          >
+            {stepsOpen ? "Hide steps ▲" : "View steps ▼"}
+          </button>
+          {stepsOpen && (
+            <ol className="recipe-steps">
+              {recipe.steps.map((step, i) => (
+                <li key={i}>{step}</li>
+              ))}
+            </ol>
+          )}
+        </div>
+      )}
+
+      <div className="recipe-card-footer">
+        {confirmingDelete ? (
+          <div className="recipe-delete-confirm">
+            <span>Remove this recipe?</span>
+            <button
+              type="button"
+              className="recipe-delete-confirm-yes"
+              onClick={() => onDelete(recipe._id)}
+              disabled={deleting}
+            >
+              {deleting ? "Removing..." : "Yes, remove"}
+            </button>
+            <button
+              type="button"
+              className="recipe-delete-confirm-no"
+              onClick={() => setConfirmingDelete(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="recipe-delete-btn"
+            onClick={() => setConfirmingDelete(true)}
+          >
+            🗑️ Remove recipe
+          </button>
+        )}
       </div>
     </div>
   );

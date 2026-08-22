@@ -52,6 +52,13 @@ export const uploadPantryPhotos = (id, files) => {
   Array.from(files).forEach((file) => form.append("photos", file));
   return api.put(`/pantry/${id}/photos`, form).then((r) => r.data);
 };
+// Analyzes photos of a fridge/pantry and returns detected food items —
+// nothing is saved yet, this is for review before adding to the pantry.
+export const recognizePantryPhotos = (files) => {
+  const form = new FormData();
+  Array.from(files).forEach((file) => form.append("photos", file));
+  return api.post("/pantry/recognize-photos", form).then((r) => r.data.items);
+};
 
 // Recipes
 export const fetchAllRecipes = () => api.get("/recipes").then((r) => r.data);
@@ -59,11 +66,9 @@ export const fetchMatchedRecipes = (tags = []) =>
   api
     .get("/recipes/matches", { params: tags.length ? { tags: tags.join(",") } : {} })
     .then((r) => r.data);
-export const uploadRecipePhoto = (id, file) => {
-  const form = new FormData();
-  form.append("photo", file);
-  return api.put(`/recipes/${id}/photo`, form).then((r) => r.data);
-};
+export const generateRecipes = (tags = [], count) =>
+  api.post("/recipes/generate", { tags, count }).then((r) => r.data);
+export const deleteRecipe = (id) => api.delete(`/recipes/${id}`).then((r) => r.data);
 
 // Grocery
 export const generateGroceryList = (recipeIds) =>

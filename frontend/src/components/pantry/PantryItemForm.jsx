@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import BarcodeScanner from "./BarcodeScanner.jsx";
 import ScanResultOverlay from "./ScanResultOverlay.jsx";
-import { lookupBarcode } from "../../services/api.js";
+import PhotoRecognitionOverlay from "./PhotoRecognitionOverlay.jsx";
+import { lookupBarcode, recognizePantryPhotos } from "../../services/api.js";
 
 export default function PantryItemForm({ onAdd }) {
   const [name, setName] = useState("");
@@ -10,16 +11,21 @@ export default function PantryItemForm({ onAdd }) {
   const [expiryDate, setExpiryDate] = useState("");
   const [barcode, setBarcode] = useState(null);
 
-  const [photoFiles, setPhotoFiles] = useState([]);
-  const [photoPreviews, setPhotoPreviews] = useState([]);
-  const fileInputRef = useRef(null);
+  const photoInputRef = useRef(null);
 
   const [scannerOpen, setScannerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const [lookupStatus, setLookupStatus] = useState(null); // null | "loading" | "not-found" | "error" | "found-estimated"
   const [scanResult, setScanResult] = useState(null); // the looked-up product, shown in the overlay
-  const [batchStatus, setBatchStatus] = useState(null); // summary text after a multi-photo scan
+  const [batchStatus, setBatchStatus] = useState(null); // summary text after a multi-item batch add
+
+  // Photo recognition ("scan a fridge/pantry photo") state, separate from
+  // barcode lookup — recognizing is true while the photo is being analyzed,
+  // recognizedItems holds the results once the review overlay should open.
+  const [recognizing, setRecognizing] = useState(false);
+  const [recognizedItems, setRecognizedItems] = useState(null);
+  const [recognitionAdding, setRecognitionAdding] = useState(false);
 
   // Close the "Scan" dropdown on an outside click.
   useEffect(() => {
@@ -31,14 +37,6 @@ export default function PantryItemForm({ onAdd }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  // Revoke the object URLs whenever they're replaced or the form unmounts,
-  // so we don't leak blob URLs as the user picks several photos in a row.
-  useEffect(() => {
-    return () => {
-      photoPreviews.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, [photoPreviews]);
-
   const resetForm = () => {
     setName("");
     setQuantity("");
@@ -47,7 +45,6 @@ export default function PantryItemForm({ onAdd }) {
     setBarcode(null);
     setLookupStatus(null);
     setScanResult(null);
-    clearPhotos();
   };
 
   const handleSubmit = (e) => {
@@ -62,29 +59,10 @@ export default function PantryItemForm({ onAdd }) {
         expiryDate: expiryDate || null,
         barcode,
       },
-      photoFiles
+      []
     );
 
     resetForm();
-  };
-
-  const clearPhotos = () => {
-    setPhotoFiles([]);
-    setPhotoPreviews((prev) => {
-      prev.forEach((url) => URL.revokeObjectURL(url));
-      return [];
-    });
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const handlePhotoChange = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-    setPhotoFiles(files);
-    setPhotoPreviews((prev) => {
-      prev.forEach((url) => URL.revokeObjectURL(url));
-      return files.map((file) => URL.createObjectURL(file));
-    });
   };
 
   const handleDetected = useCallback(async (code) => {
@@ -148,7 +126,7 @@ export default function PantryItemForm({ onAdd }) {
     [onAdd]
   );
 
-  // "Add to pantry" in the overlay — skips the form entirely.
+  // "Add to pantry" in the barcode-match overlay — skips the form entirely.
   const handleQuickAdd = () => {
     if (!scanResult) return;
     onAdd(
@@ -165,8 +143,8 @@ export default function PantryItemForm({ onAdd }) {
     resetForm();
   };
 
-  // "Edit details" in the overlay — prefills the form instead, same as the
-  // old behavior, in case something needs adjusting before saving.
+  // "Edit details" in the barcode-match overlay — prefills the form instead,
+  // in case something needs adjusting before saving.
   const handleEditManually = () => {
     if (scanResult) {
       setName(scanResult.name);
@@ -180,6 +158,34 @@ export default function PantryItemForm({ onAdd }) {
     setScanResult(null);
   };
 
+  // "Scan photo" — takes a picture of the fridge/pantry shelf, identifies
+  // what food is visible, and opens a review overlay so those items can be
+  // added straight to the list (nothing is added until the person confirms).
+  const handlePhotoScanChange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (files.length === 0) return;
+
+    setBatchStatus(null);
+    setRecognizing(true);
+    try {
+      const items = await recognizePantryPhotos(files);
+      setRecognizedItems(items);
+    } catch {
+      setBatchStatus("Couldn't analyze that photo — try again or add items manually.");
+    } finally {
+      setRecognizing(false);
+    }
+  };
+
+  const handleAddRecognizedItems = (items) => {
+    setRecognitionAdding(true);
+    items.forEach((item) => onAdd(item, []));
+    setRecognitionAdding(false);
+    setRecognizedItems(null);
+    setBatchStatus(`Added ${items.length} item${items.length === 1 ? "" : "s"} from photo.`);
+  };
+
   return (
     <>
       <form className="pantry-form" onSubmit={handleSubmit}>
@@ -188,14 +194,10 @@ export default function PantryItemForm({ onAdd }) {
             type="button"
             className="scan-button"
             onClick={() => setMenuOpen((o) => !o)}
-            title="Scan a barcode or attach photos"
+            title="Scan a barcode or a photo of your fridge/pantry"
+            disabled={recognizing}
           >
-            {photoPreviews[0] ? (
-              <img src={photoPreviews[0]} alt="" className="scan-button-thumb" />
-            ) : (
-              "📷"
-            )}{" "}
-            Scan
+            📷 {recognizing ? "Analyzing..." : "Scan"}
           </button>
 
           {menuOpen && (
@@ -215,33 +217,20 @@ export default function PantryItemForm({ onAdd }) {
                 role="menuitem"
                 onClick={() => {
                   setMenuOpen(false);
-                  fileInputRef.current?.click();
+                  photoInputRef.current?.click();
                 }}
               >
-                🖼️ Upload photo(s)
+                🧊 Scan fridge/pantry photo
               </button>
-              {photoFiles.length > 0 && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="scan-menu-remove"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    clearPhotos();
-                  }}
-                >
-                  ✕ Remove photo{photoFiles.length > 1 ? "s" : ""}
-                </button>
-              )}
             </div>
           )}
 
           <input
-            ref={fileInputRef}
+            ref={photoInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
             multiple
-            onChange={handlePhotoChange}
+            onChange={handlePhotoScanChange}
             hidden
           />
         </div>
@@ -285,12 +274,6 @@ export default function PantryItemForm({ onAdd }) {
 
       {batchStatus && <p className="scan-status">{batchStatus}</p>}
 
-      {photoFiles.length > 0 && !lookupStatus && !batchStatus && (
-        <p className="scan-status">
-          {photoFiles.length} photo{photoFiles.length > 1 ? "s" : ""} attached — they'll be added with this item.
-        </p>
-      )}
-
       {scannerOpen && (
         <BarcodeScanner
           onDetect={handleDetected}
@@ -305,6 +288,15 @@ export default function PantryItemForm({ onAdd }) {
           onAdd={handleQuickAdd}
           onEditManually={handleEditManually}
           onClose={() => setScanResult(null)}
+        />
+      )}
+
+      {recognizedItems && (
+        <PhotoRecognitionOverlay
+          items={recognizedItems}
+          onAddSelected={handleAddRecognizedItems}
+          onClose={() => setRecognizedItems(null)}
+          adding={recognitionAdding}
         />
       )}
     </>
