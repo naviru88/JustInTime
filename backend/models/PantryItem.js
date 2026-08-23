@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 
 const pantryItemSchema = new mongoose.Schema(
   {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     name: {
       type: String,
       required: true,
@@ -16,6 +21,18 @@ const pantryItemSchema = new mongoose.Schema(
       type: String,
       default: "",
       trim: true,
+    },
+    // UPC/EAN code from a barcode scan, if the item was added that way.
+    // Not unique — the same product can be added in separate batches.
+    barcode: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    // Relative paths served statically by Express, e.g. ["/uploads/xyz.jpg"]
+    photos: {
+      type: [String],
+      default: [],
     },
     expiryDate: {
       type: Date,

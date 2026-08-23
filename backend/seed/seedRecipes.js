@@ -40,7 +40,7 @@ const recipes = [
       "Saute onion and garlic, add diced chicken and cook through.",
       "Serve chicken mixture over rice.",
     ],
-    tags: [],
+    tags: ["gluten-free"],
     source: "seeded",
   },
   {
@@ -88,7 +88,7 @@ const recipes = [
       "Simmer everything in water or stock for 20-25 minutes until soft.",
       "Blend partially or fully depending on preferred texture, season to taste.",
     ],
-    tags: ["vegetarian", "vegan"],
+    tags: ["vegetarian", "vegan", "gluten-free"],
     source: "seeded",
   },
 ];
