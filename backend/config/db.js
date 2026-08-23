@@ -11,9 +11,13 @@ if (!cached) {
 const connectDB = async () => {
   if (cached.conn) return cached.conn;
 
-  const uri = process.env.MONGO_URI;
+  // Vercel's MongoDB integration auto-injects MONGODB_URI; local dev uses
+  // MONGO_URI (see .env.example) — accept either so both setups work
+  // without renaming anything and without the Vercel integration silently
+  // overwriting a manually-renamed variable on its next sync.
+  const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
   if (!uri) {
-    throw new Error("MONGO_URI is not set");
+    throw new Error("MONGO_URI (or MONGODB_URI) is not set");
   }
 
   if (!cached.promise) {
