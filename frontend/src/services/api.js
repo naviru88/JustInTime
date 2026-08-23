@@ -8,9 +8,28 @@ const api = axios.create({
 
 // Called by AuthContext whenever the token changes (login/logout/refresh).
 export const setAuthToken = (token) => {
+  // TEMP DIAGNOSTIC — remove once the 401-after-login bug is confirmed fixed.
+  console.log("[JIT DEBUG] setAuthToken called with token length:", token?.length);
   if (token) api.defaults.headers.common.Authorization = `Bearer ${token}`;
   else delete api.defaults.headers.common.Authorization;
+  console.log(
+    "[JIT DEBUG] api.defaults.headers.common.Authorization is now:",
+    api.defaults.headers.common.Authorization
+  );
 };
+
+// TEMP DIAGNOSTIC — logs every outgoing request's actual Authorization header
+// right before it's sent, so we can see definitively what axios is doing.
+api.interceptors.request.use((config) => {
+  console.log(
+    "[JIT DEBUG] outgoing request",
+    config.method,
+    config.url,
+    "Authorization header:",
+    config.headers?.Authorization || config.headers?.common?.Authorization || "(none)"
+  );
+  return config;
+});
 
 // Auth
 export const signup = (name, email, password) =>
