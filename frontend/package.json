@@ -21,11 +21,11 @@
     "axios": "^1.7.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.25.1"
+    "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.5.0",
+    "@capacitor/cli": "^8.4.2",
     "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.3.4"
+    "vite": "^8.2.2"
   }
 }
