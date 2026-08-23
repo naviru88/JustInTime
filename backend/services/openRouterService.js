@@ -1,6 +1,11 @@
-// Generates recipes from a person's actual pantry via OpenRouter's AI models.
-// Defaults to the "openrouter/free" router, which auto-selects from whatever free models are currently available
-
+// Generates recipes from a person's actual pantry via OpenRouter's
+// OpenAI-compatible chat completions endpoint (https://openrouter.ai/api/v1).
+//
+// Defaults to the "openrouter/free" router, which auto-selects from
+// whatever free models are currently available — individual `:free` model
+// IDs on OpenRouter rotate/get pulled often, so pinning one specific ID is
+// fragile. Override with OPENROUTER_MODEL in .env if you want a specific
+// model (e.g. "meta-llama/llama-3.3-70b-instruct:free").
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 const buildSystemPrompt = () => `You are a recipe writer. Given a list of pantry ingredients (with how many days until each expires, where known) and optional dietary restrictions, invent practical recipes that primarily use those ingredients — prioritizing the ones expiring soonest.
@@ -71,10 +76,7 @@ export const generateRecipesFromPantry = async (pantryItems, options = {}) => {
   if (process.env.OPENROUTER_SITE_NAME) headers["X-Title"] = process.env.OPENROUTER_SITE_NAME;
 
   const controller = new AbortController();
-  // Stay comfortably under the 60s maxDuration set in vercel.json — if we
-  // hit our own limit first, we throw a clear OPENROUTER_TIMEOUT error
-  // instead of letting Vercel kill the function with an opaque 504.
-  const timeout = setTimeout(() => controller.abort(), 50000);
+  const timeout = setTimeout(() => controller.abort(), 30000);
 
   let payload;
   try {
