@@ -51,16 +51,13 @@ export default function PantryItemForm({ onAdd }) {
     e.preventDefault();
     if (!name.trim()) return;
 
-    onAdd(
-      {
-        name: name.trim(),
-        quantity: quantity ? Number(quantity) : 1,
-        unit: unit.trim(),
-        expiryDate: expiryDate || null,
-        barcode,
-      },
-      []
-    );
+    onAdd({
+      name: name.trim(),
+      quantity: quantity ? Number(quantity) : 1,
+      unit: unit.trim(),
+      expiryDate: expiryDate || null,
+      barcode,
+    });
 
     resetForm();
   };
@@ -98,16 +95,13 @@ export default function PantryItemForm({ onAdd }) {
         try {
           const result = await lookupBarcode(code);
           if (result.found) {
-            onAdd(
-              {
-                name: result.name,
-                quantity: result.quantity ?? 1,
-                unit: result.unit || "",
-                expiryDate: result.expiryDate || null,
-                barcode: result.barcode,
-              },
-              []
-            );
+            onAdd({
+              name: result.name,
+              quantity: result.quantity ?? 1,
+              unit: result.unit || "",
+              expiryDate: result.expiryDate || null,
+              barcode: result.barcode,
+            });
             added += 1;
           } else {
             notFound += 1;
@@ -129,16 +123,13 @@ export default function PantryItemForm({ onAdd }) {
   // "Add to pantry" in the barcode-match overlay — skips the form entirely.
   const handleQuickAdd = () => {
     if (!scanResult) return;
-    onAdd(
-      {
-        name: scanResult.name,
-        quantity: scanResult.quantity ?? 1,
-        unit: scanResult.unit || "",
-        expiryDate: scanResult.expiryDate || null,
-        barcode: scanResult.barcode,
-      },
-      []
-    );
+    onAdd({
+      name: scanResult.name,
+      quantity: scanResult.quantity ?? 1,
+      unit: scanResult.unit || "",
+      expiryDate: scanResult.expiryDate || null,
+      barcode: scanResult.barcode,
+    });
     setScanResult(null);
     resetForm();
   };
@@ -180,7 +171,7 @@ export default function PantryItemForm({ onAdd }) {
 
   const handleAddRecognizedItems = (items) => {
     setRecognitionAdding(true);
-    items.forEach((item) => onAdd(item, []));
+    items.forEach((item) => onAdd(item));
     setRecognitionAdding(false);
     setRecognizedItems(null);
     setBatchStatus(`Added ${items.length} item${items.length === 1 ? "" : "s"} from photo.`);

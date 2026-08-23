@@ -1,0 +1,11 @@
+{
+  "remoteName": "origin",
+  "projects": [
+    {
+      "id": "prj_TRrIRuc8kxtjWuFXlff7kBXyc7oG",
+      "name": "recipe-planner",
+      "directory": ".",
+      "orgId": "team_cZxqeDPgNPWK73VSuAZQWRcz"
+    }
+  ]
+}

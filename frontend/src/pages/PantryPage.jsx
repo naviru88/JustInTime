@@ -1,12 +1,7 @@
 import { useEffect, useState } from "react";
 import PantryItemForm from "../components/pantry/PantryItemForm.jsx";
 import PantryList from "../components/pantry/PantryList.jsx";
-import {
-  fetchPantryItems,
-  addPantryItem,
-  deletePantryItem,
-  uploadPantryPhotos,
-} from "../services/api.js";
+import { fetchPantryItems, addPantryItem, deletePantryItem } from "../services/api.js";
 
 export default function PantryPage() {
   const [items, setItems] = useState([]);
@@ -30,34 +25,16 @@ export default function PantryPage() {
     loadItems();
   }, []);
 
-  const handleAdd = async (item, photoFiles) => {
+  // Barcode/photo scans (see PantryItemForm) already resolve to plain text
+  // fields before calling this — no image is ever uploaded or saved here.
+  const handleAdd = async (item) => {
     const created = await addPantryItem(item);
     setItems((prev) => [...prev, created]);
-
-    if (photoFiles && photoFiles.length > 0) {
-      try {
-        const withPhotos = await uploadPantryPhotos(created._id, photoFiles);
-        setItems((prev) => prev.map((i) => (i._id === withPhotos._id ? withPhotos : i)));
-      } catch {
-        // The item is already saved without photos — surface this softly
-        // rather than losing the whole add because the image upload failed.
-        setError("Item added, but the photo upload failed. You can retry it from the list.");
-      }
-    }
   };
 
   const handleDelete = async (id) => {
     await deletePantryItem(id);
     setItems((prev) => prev.filter((i) => i._id !== id));
-  };
-
-  const handlePhotoUpload = async (id, files) => {
-    try {
-      const updated = await uploadPantryPhotos(id, files);
-      setItems((prev) => prev.map((i) => (i._id === updated._id ? updated : i)));
-    } catch {
-      setError("Couldn't upload that photo. Try again.");
-    }
   };
 
   return (
@@ -71,7 +48,7 @@ export default function PantryPage() {
 
       {loading && <p>Loading pantry...</p>}
       {error && <p style={{ color: "#c1440e" }}>{error}</p>}
-      {!loading && !error && <PantryList items={items} onDelete={handleDelete} onPhotoUpload={handlePhotoUpload} />}
+      {!loading && !error && <PantryList items={items} onDelete={handleDelete} />}
     </div>
   );
 }
