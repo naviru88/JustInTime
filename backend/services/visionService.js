@@ -57,7 +57,9 @@ export const identifyPantryItemsFromPhotos = async (photos) => {
   if (process.env.OPENROUTER_SITE_NAME) headers["X-Title"] = process.env.OPENROUTER_SITE_NAME;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  // Vision models are typically slower than text-only completions — stay
+  // comfortably under the 60s maxDuration set in vercel.json.
+  const timeout = setTimeout(() => controller.abort(), 50000);
 
   let payload;
   try {

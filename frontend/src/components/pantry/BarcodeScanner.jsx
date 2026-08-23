@@ -192,6 +192,7 @@ export default function BarcodeScanner({ onDetect, onDetectBatch, onClose }) {
             ref={photoInputRef}
             type="file"
             accept="image/*"
+            capture="environment"
             multiple
             onChange={handlePhotoPick}
             hidden
