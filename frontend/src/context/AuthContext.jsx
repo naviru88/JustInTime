@@ -47,10 +47,7 @@ export function AuthProvider({ children }) {
     // normally does this — losing that race means the request goes out
     // with no Authorization header, gets a 401, and triggers an immediate
     // auto-logout right after a successful login.
-    // TEMP DIAGNOSTIC — remove once the 401-after-login bug is confirmed fixed.
-    console.log("[JIT DEBUG] applyAuthResult firing, token length:", newToken?.length);
     setAuthToken(newToken);
-    console.log("[JIT DEBUG] setAuthToken called BEFORE setToken/setUser");
     setToken(newToken);
     setUser(newUser);
   };
