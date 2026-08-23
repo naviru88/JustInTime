@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import PantryItemForm from "../components/pantry/PantryItemForm.jsx";
 import PantryList from "../components/pantry/PantryList.jsx";
+import NotificationSettings from "../components/pantry/NotificationSettings.jsx";
 import { fetchPantryItems, addPantryItem, deletePantryItem } from "../services/api.js";
+import { syncReminders } from "../services/notifications.js";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export default function PantryPage() {
+  const { user } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,6 +29,15 @@ export default function PantryPage() {
     loadItems();
   }, []);
 
+  // Re-derive the reminder schedule whenever the pantry or the person's
+  // notification settings change. Harmless no-op if notifications are off
+  // or permission hasn't been granted (syncReminders checks both).
+  useEffect(() => {
+    if (user?.notifications?.enabled) {
+      syncReminders(items, user.notifications.daysBefore ?? 2);
+    }
+  }, [items, user?.notifications?.enabled, user?.notifications?.daysBefore]);
+
   // Barcode/photo scans (see PantryItemForm) already resolve to plain text
   // fields before calling this — no image is ever uploaded or saved here.
   const handleAdd = async (item) => {
@@ -43,6 +56,8 @@ export default function PantryPage() {
       <p className="page-subtitle">
         Add what you've got. We'll flag what's about to expire and suggest what to cook first.
       </p>
+
+      <NotificationSettings />
 
       <PantryItemForm onAdd={handleAdd} />
 

@@ -13,6 +13,10 @@ const publicUser = (user) => ({
   name: user.name,
   email: user.email,
   avatarUrl: user.avatarUrl,
+  notifications: {
+    enabled: user.notifications?.enabled ?? false,
+    daysBefore: user.notifications?.daysBefore ?? 2,
+  },
 });
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -126,4 +130,31 @@ export const googleAuth = async (req, res, next) => {
 // GET /api/auth/me
 export const getMe = async (req, res) => {
   res.json(publicUser(req.user));
+};
+
+// PATCH /api/auth/notifications  { enabled?, daysBefore? }
+export const updateNotificationSettings = async (req, res, next) => {
+  try {
+    const { enabled, daysBefore } = req.body;
+
+    if (enabled !== undefined) {
+      if (typeof enabled !== "boolean") {
+        return res.status(400).json({ message: "enabled must be true or false" });
+      }
+      req.user.notifications.enabled = enabled;
+    }
+
+    if (daysBefore !== undefined) {
+      const days = Number(daysBefore);
+      if (!Number.isFinite(days) || days < 0 || days > 14) {
+        return res.status(400).json({ message: "daysBefore must be a number between 0 and 14" });
+      }
+      req.user.notifications.daysBefore = days;
+    }
+
+    await req.user.save();
+    res.json(publicUser(req.user));
+  } catch (err) {
+    next(err);
+  }
 };

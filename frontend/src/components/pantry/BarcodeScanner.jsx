@@ -1,65 +1,65 @@
 import { useEffect, useRef, useState } from "react";
 import { BrowserMultiFormatReader } from "@zxing/browser";
-import { NotFoundException } from "@zxing/library";
+import { BarcodeFormat, DecodeHintType, NotFoundException } from "@zxing/library";
 
-// Camera-based barcode scanner. Live scanning uses the native BarcodeDetector
-// API where available (Chrome/Edge/Android, and Safari 16.4+); everywhere
-// else it falls back to a manual numeric-entry field. Decoding from an
-// uploaded photo instead uses zxing-js, which runs in plain JS against a
-// canvas — that works in every modern browser regardless of BarcodeDetector
-// support, so "upload a photo" is never a Chromium-only option.
+// Camera-based barcode scanner. Both live scanning AND decoding an uploaded
+// photo use zxing-js (a pure-JS decoder working off a canvas), not the
+// browser-native BarcodeDetector API — that API doesn't exist in Android's
+// System WebView (what a Capacitor app actually renders with), so live
+// scanning would silently never detect anything there even though it works
+// fine in a desktop Chrome tab. Using the same decoder for both paths means
+// "works in the browser" and "works in the app" are the same code path.
+const HINTS = new Map([
+  [
+    DecodeHintType.POSSIBLE_FORMATS,
+    [BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E, BarcodeFormat.CODE_128],
+  ],
+]);
+
 export default function BarcodeScanner({ onDetect, onDetectBatch, onClose }) {
   const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const rafRef = useRef(null);
+  const controlsRef = useRef(null);
   const detectedRef = useRef(false);
   const zxingReaderRef = useRef(null);
 
-  const [supported] = useState(() => "BarcodeDetector" in window);
   const [cameraError, setCameraError] = useState(null);
   const [manualCode, setManualCode] = useState("");
   const photoInputRef = useRef(null);
   const [photoDecoding, setPhotoDecoding] = useState(null); // null | "Reading..." string | { error }
 
-  useEffect(() => {
-    if (!supported) return undefined;
+  const getZxingReader = () => {
+    if (!zxingReaderRef.current) zxingReaderRef.current = new BrowserMultiFormatReader(HINTS);
+    return zxingReaderRef.current;
+  };
 
+  useEffect(() => {
     let cancelled = false;
 
     const start = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-        });
+        // decodeFromConstraints handles getUserMedia + attaching the stream
+        // to the video element itself, then calls back on every decode
+        // attempt (found or not) until we stop it.
+        const controls = await getZxingReader().decodeFromConstraints(
+          { video: { facingMode: "environment" } },
+          videoRef.current,
+          (result, error) => {
+            if (cancelled || detectedRef.current) return;
+            if (result) {
+              detectedRef.current = true;
+              controlsRef.current?.stop();
+              onDetect(result.getText());
+            } else if (error && !(error instanceof NotFoundException)) {
+              // NotFoundException fires on every frame with no barcode in
+              // view — that's normal and expected, not an error to surface.
+            }
+          }
+        );
         if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
+          controls.stop();
           return;
         }
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-        }
-
-        const detector = new window.BarcodeDetector({
-          formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"],
-        });
-
-        const scanFrame = async () => {
-          if (cancelled || detectedRef.current || !videoRef.current) return;
-          try {
-            const codes = await detector.detect(videoRef.current);
-            if (codes.length > 0 && !detectedRef.current) {
-              detectedRef.current = true;
-              onDetect(codes[0].rawValue);
-              return;
-            }
-          } catch {
-            // transient decode errors are normal mid-stream; keep scanning
-          }
-          rafRef.current = requestAnimationFrame(scanFrame);
-        };
-        rafRef.current = requestAnimationFrame(scanFrame);
+        controlsRef.current = controls;
       } catch (err) {
         if (!cancelled) {
           setCameraError(
@@ -75,15 +75,10 @@ export default function BarcodeScanner({ onDetect, onDetectBatch, onClose }) {
 
     return () => {
       cancelled = true;
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+      controlsRef.current?.stop();
+      controlsRef.current = null;
     };
-  }, [supported, onDetect]);
-
-  const getZxingReader = () => {
-    if (!zxingReaderRef.current) zxingReaderRef.current = new BrowserMultiFormatReader();
-    return zxingReaderRef.current;
-  };
+  }, [onDetect]);
 
   // Decodes one image file to a barcode string, or null if none was found.
   const decodePhoto = async (file) => {
@@ -127,6 +122,7 @@ export default function BarcodeScanner({ onDetect, onDetectBatch, onClose }) {
       if (files.length === 1) {
         if (codes.length === 1) {
           detectedRef.current = true;
+          controlsRef.current?.stop();
           onDetect(codes[0]);
         } else {
           setPhotoDecoding({ error: "Couldn't find a barcode in that photo. Try a clearer, closer shot." });
@@ -135,6 +131,7 @@ export default function BarcodeScanner({ onDetect, onDetectBatch, onClose }) {
         setPhotoDecoding({ error: "Couldn't find a barcode in any of those photos." });
       } else {
         detectedRef.current = true;
+        controlsRef.current?.stop();
         onDetectBatch({ codes, unreadable });
       }
     } finally {
@@ -144,7 +141,6 @@ export default function BarcodeScanner({ onDetect, onDetectBatch, onClose }) {
 
   const photoError = photoDecoding && typeof photoDecoding === "object" ? photoDecoding.error : null;
   const photoLabel = typeof photoDecoding === "string" ? photoDecoding : "🖼️ Upload photo(s) of a barcode";
-  const showManualFallback = !supported || cameraError;
 
   return (
     <div className="scanner-overlay" onClick={onClose}>
@@ -156,16 +152,16 @@ export default function BarcodeScanner({ onDetect, onDetectBatch, onClose }) {
           </button>
         </div>
 
-        {!showManualFallback && (
+        {!cameraError && (
           <div className="scanner-video-wrap">
             <video ref={videoRef} className="scanner-video" muted playsInline />
             <div className="scanner-frame" />
           </div>
         )}
 
-        {showManualFallback && (
+        {cameraError && (
           <form className="scanner-manual" onSubmit={handleManualSubmit}>
-            <p className="scanner-manual-hint">{cameraError || "Barcode scanning isn't supported in this browser."}</p>
+            <p className="scanner-manual-hint">{cameraError}</p>
             <input
               type="text"
               inputMode="numeric"

@@ -4,6 +4,7 @@ import {
   login as loginRequest,
   googleLogin as googleLoginRequest,
   fetchMe,
+  updateNotificationSettings,
   setAuthToken,
 } from "../services/api.js";
 
@@ -64,6 +65,12 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const updateNotifications = async (settings) => {
+    const updated = await updateNotificationSettings(settings);
+    setUser(updated);
+    return updated;
+  };
+
   // A 401 from any API call means the session is no longer valid server-side.
   useEffect(() => {
     const handleUnauthorized = () => logout();
@@ -81,6 +88,7 @@ export function AuthProvider({ children }) {
       login,
       loginWithGoogle,
       logout,
+      updateNotifications,
     }),
     [user, token, loading]
   );

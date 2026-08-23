@@ -220,6 +220,7 @@ export default function PantryItemForm({ onAdd }) {
             ref={photoInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
+            capture="environment"
             multiple
             onChange={handlePhotoScanChange}
             hidden

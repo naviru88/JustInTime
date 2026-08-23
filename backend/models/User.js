@@ -30,6 +30,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    notifications: {
+      enabled: { type: Boolean, default: false },
+      // How many days before an item's expiry date to remind the person.
+      daysBefore: { type: Number, default: 2, min: 0, max: 14 },
+    },
   },
   { timestamps: true }
 );

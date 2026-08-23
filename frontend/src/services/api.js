@@ -20,6 +20,8 @@ export const login = (email, password) =>
 export const googleLogin = (credential) =>
   api.post("/auth/google", { credential }).then((r) => r.data);
 export const fetchMe = () => api.get("/auth/me").then((r) => r.data);
+export const updateNotificationSettings = (payload) =>
+  api.patch("/auth/notifications", payload).then((r) => r.data);
 
 // If any request comes back 401 (expired/invalid token), broadcast an event
 // so AuthContext can clear the stale session instead of leaving the UI stuck

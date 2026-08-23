@@ -153,7 +153,7 @@ export const recognizePantryPhotos = async (req, res, next) => {
     try {
       detected = await identifyPantryItemsFromPhotos(photos);
     } catch (visionErr) {
-      if (visionErr.message?.includes("ANTHROPIC_API_KEY")) {
+      if (visionErr.code === "OPENROUTER_NOT_CONFIGURED") {
         return res.status(500).json({
           message: "Photo recognition isn't configured on this server yet.",
         });

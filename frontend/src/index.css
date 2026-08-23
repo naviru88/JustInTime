@@ -420,6 +420,56 @@ h1 {
   font-size: 15px;
 }
 
+.notification-settings {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: -8px 0 24px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  font-size: 13px;
+}
+
+.notification-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.notification-toggle input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.notification-days {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-muted);
+}
+
+.notification-days select {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 13px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.notification-error {
+  flex-basis: 100%;
+  color: var(--color-urgent);
+  margin: 0;
+  font-size: 12px;
+}
+
 .card {
   background: var(--color-surface);
   backdrop-filter: var(--glass-blur);
@@ -1543,13 +1593,16 @@ h1 {
   }
 
   .sidebar-nav {
+    flex: 3; /* 3 links; paired with .sidebar-bottom's flex: 1 below, that's 4 equal-width tabs total */
+    display: flex;
     flex-direction: row;
-    flex: 1;
     gap: 0;
+    min-width: 0;
   }
 
   .sidebar-link {
     flex: 1;
+    min-width: 0; /* flex items don't shrink below content size by default — this is what actually lets a tab compress instead of overflowing the bar */
     flex-direction: column;
     justify-content: center;
     gap: 2px;
@@ -1565,13 +1618,18 @@ h1 {
 
   .sidebar-link-label {
     font-size: 10px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .sidebar-bottom {
+    flex: 1; /* matches one nav link's share, so logout is the 4th equal tab */
+    min-width: 0;
     margin-top: 0;
     padding-top: 0;
     border-top: none;
-    flex-shrink: 0;
   }
 
   .sidebar-user-name {
@@ -1579,13 +1637,15 @@ h1 {
   }
 
   .sidebar-logout {
+    width: 100%;
+    min-width: 0;
     flex-direction: column;
     gap: 2px;
     height: 100%;
     border: none;
     background: transparent;
     border-radius: 0;
-    padding: 6px 10px;
+    padding: 6px 2px;
   }
 
   .sidebar-logout-icon {
@@ -1594,6 +1654,10 @@ h1 {
 
   .sidebar-logout-label {
     font-size: 10px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* The bottom bar always shows icon+label — there's no room to "collapse"
