@@ -40,6 +40,14 @@ export function AuthProvider({ children }) {
   }, []);
 
   const applyAuthResult = ({ token: newToken, user: newUser }) => {
+    // Attach the token to axios synchronously, *before* setToken/setUser
+    // trigger a re-render. Otherwise a newly-mounted child (e.g. PantryPage
+    // mounting because isAuthenticated just flipped true) can fire its own
+    // data fetch in the same commit and race the `useEffect` below that
+    // normally does this — losing that race means the request goes out
+    // with no Authorization header, gets a 401, and triggers an immediate
+    // auto-logout right after a successful login.
+    setAuthToken(newToken);
     setToken(newToken);
     setUser(newUser);
   };
