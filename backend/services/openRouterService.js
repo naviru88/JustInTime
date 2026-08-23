@@ -96,7 +96,13 @@ export const generateRecipesFromPantry = async (pantryItems, options = {}) => {
 
     if (!response.ok) {
       const errBody = await response.text().catch(() => "");
-      const err = new Error(`OpenRouter request failed (${response.status}): ${errBody.slice(0, 300)}`);
+      // TEMP DIAGNOSTIC — masked fingerprint to compare against the known-good
+      // key, remove once the persistent 401 is resolved.
+      const k = process.env.OPENROUTER_API_KEY || "";
+      const fingerprint = k ? `${k.slice(0, 10)}...${k.slice(-4)} (length ${k.length})` : "(unset)";
+      const err = new Error(
+        `OpenRouter request failed (${response.status}): ${errBody.slice(0, 300)} | KEY FINGERPRINT: ${fingerprint}`
+      );
       err.code = "OPENROUTER_REQUEST_FAILED";
       throw err;
     }
