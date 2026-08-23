@@ -1,4 +1,3 @@
-# recipe-planner
 # Just In Time — Expiry-Aware Recipe Planner
 
 A MERN app that suggests recipes ranked by how many of your about-to-expire

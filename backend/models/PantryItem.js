@@ -29,11 +29,6 @@ const pantryItemSchema = new mongoose.Schema(
       default: null,
       trim: true,
     },
-    // Relative paths served statically by Express, e.g. ["/uploads/xyz.jpg"]
-    photos: {
-      type: [String],
-      default: [],
-    },
     expiryDate: {
       type: Date,
       default: null, // null = no known expiry

@@ -1,3 +1,16 @@
 node_modules/
 dist/
 .env
+
+# Capacitor native projects are checked in, but not their build output
+android/app/build/
+android/.gradle/
+android/local.properties
+android/captures/
+ios/App/Pods/
+ios/App/build/
+ios/App/*.xcworkspace/xcuserdata/
+ios/App/*.xcodeproj/xcuserdata/
+ios/App/App/public/
+android/app/src/main/assets/public/
+

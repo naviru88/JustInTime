@@ -12,11 +12,6 @@ export const setAuthToken = (token) => {
   else delete api.defaults.headers.common.Authorization;
 };
 
-// Uploaded photos are served from the backend's origin at /uploads/..., not
-// under /api, so strip the API suffix to get a base for building full URLs.
-const ASSET_BASE_URL = API_URL.replace(/\/api\/?$/, "");
-export const resolvePhotoUrl = (photoUrl) => (photoUrl ? `${ASSET_BASE_URL}${photoUrl}` : null);
-
 // Auth
 export const signup = (name, email, password) =>
   api.post("/auth/signup", { name, email, password }).then((r) => r.data);
@@ -47,13 +42,9 @@ export const updatePantryItem = (id, updates) =>
 export const deletePantryItem = (id) => api.delete(`/pantry/${id}`).then((r) => r.data);
 export const lookupBarcode = (barcode) =>
   api.get(`/pantry/lookup/${barcode}`).then((r) => r.data);
-export const uploadPantryPhotos = (id, files) => {
-  const form = new FormData();
-  Array.from(files).forEach((file) => form.append("photos", file));
-  return api.put(`/pantry/${id}/photos`, form).then((r) => r.data);
-};
 // Analyzes photos of a fridge/pantry and returns detected food items —
-// nothing is saved yet, this is for review before adding to the pantry.
+// nothing is saved, this is purely to derive text fields for review before
+// adding to the pantry. The photos themselves are never persisted.
 export const recognizePantryPhotos = (files) => {
   const form = new FormData();
   Array.from(files).forEach((file) => form.append("photos", file));

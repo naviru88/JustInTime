@@ -1,5 +1,4 @@
 import PantryItem from "../models/PantryItem.js";
-import { deletePhotoFile } from "../middleware/upload.js";
 import { estimateShelfLifeDays, expiryDateFromToday } from "../services/shelfLifeEstimator.js";
 import { identifyPantryItemsFromPhotos } from "../services/visionService.js";
 
@@ -132,7 +131,6 @@ export const deletePantryItem = async (req, res, next) => {
   try {
     const item = await PantryItem.findOneAndDelete({ _id: req.params.id, user: req.user._id });
     if (!item) return res.status(404).json({ message: "Item not found" });
-    item.photos.forEach(deletePhotoFile);
     res.json({ message: "Item removed" });
   } catch (err) {
     next(err);
@@ -175,25 +173,6 @@ export const recognizePantryPhotos = async (req, res, next) => {
     });
 
     res.json({ items });
-  } catch (err) {
-    next(err);
-  }
-};
-export const uploadPantryPhotos = async (req, res, next) => {
-  try {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ message: "At least one photo file is required" });
-    }
-    const item = await PantryItem.findOne({ _id: req.params.id, user: req.user._id });
-    if (!item) {
-      req.files.forEach((f) => deletePhotoFile(`/uploads/${f.filename}`));
-      return res.status(404).json({ message: "Item not found" });
-    }
-
-    item.photos.push(...req.files.map((f) => `/uploads/${f.filename}`));
-    await item.save();
-
-    res.json(item);
   } catch (err) {
     next(err);
   }
