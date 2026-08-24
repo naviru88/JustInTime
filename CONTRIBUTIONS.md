@@ -46,9 +46,9 @@ npm run dev
 Use separate terminals for the two development servers. The frontend normally
 runs on `http://localhost:5173` and the API on `http://localhost:5000`.
 
-## Implemented product areas
+## Contributors can build on these working capabilities:
 
-Contributors can build on these working capabilities:
+### Implemented product areas
 
 - Email/password auth with bcrypt and optional Google Sign-In.
 - JWT-protected, user-scoped pantry and meal-plan data.
