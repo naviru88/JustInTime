@@ -6,7 +6,9 @@ import App from "./App.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import "./index.css";
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_ID =
+  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+  "331318786154-mvj2jh9srtnt168osaaff3759ksjec4f.apps.googleusercontent.com";
 
 const Root = (
   <React.StrictMode>

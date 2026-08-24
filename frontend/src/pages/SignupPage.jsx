@@ -3,7 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
 import { useAuth } from "../context/AuthContext.jsx";
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_ID =
+  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+  "331318786154-mvj2jh9srtnt168osaaff3759ksjec4f.apps.googleusercontent.com";
 
 export default function SignupPage() {
   const { signup, loginWithGoogle } = useAuth();
@@ -95,6 +97,11 @@ export default function SignupPage() {
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
               onError={() => setError("Google sign-up failed. Try again.")}
+              width="100%"
+              size="large"
+              text="continue_with"
+              theme="outline"
+              shape="rectangular"
             />
           ) : (
             <p className="auth-google-unavailable">Google sign-in isn't configured yet.</p>
