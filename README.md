@@ -243,6 +243,7 @@ The default development URLs are `http://localhost:5000` for the API and
 
 - [Live Site](https://recipe-planner-xi.vercel.app/)
 - [GitHub Repo](https://github.com/naviru88/JustInTime)
+- [Mobile App (apk) download](https://drive.google.com/drive/folders/1KbeSi2Ov_DAWMPmhvTKQdqC7PjvYcKhL?usp=drive_link)
 
 ## Security and privacy
 
