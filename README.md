@@ -138,33 +138,24 @@ other recipe is.
 - JWT-protected, user-scoped pantry and meal-plan data.
 - Pantry items with quantity, unit, expiry date, and barcode fields.
 - Expiry-aware urgency badges and browser/device expiry reminders.
-- Barcode camera scanning, barcode image upload, and Open Food Facts lookup.
-- Pantry/fridge photo recognition through OpenRouter, with review before saving.
 - Recipe matching ranked by availability and ingredient urgency.
 - Vegetarian, vegan, and gluten-free filters.
 - AI recipe generation from pantry contents through OpenRouter.
 - Seeded and generated recipe catalog with deletion support.
 - Grocery lists for selected recipes, grouped by category.
 - Weekly breakfast, lunch, and dinner planning with week navigation.
-- Best-effort openly licensed recipe imagery through Openverse.
-- Responsive desktop sidebar and mobile sticky header navigation.
-- Mobile overflow protection; only the meal calendar scrolls horizontally.
 
 ### Planned features
-
+- Barcode camera scanning, barcode image upload, and Open Food Facts lookup.
+- Pantry/fridge photo recognition, with review before saving.
+  
 These are open roadmap ideas rather than fixed commitments:
 
-- Pantry editing, search, sorting, categories, and bulk actions.
 - Recipe details, serving scaling, nutrition information, favorites, and collections.
 - Drag-and-drop and recurring meal plans.
 - Grocery-list export, sharing, and store-aware organization.
 - More dietary preferences, allergies, cuisines, and custom tags.
-- Image storage and moderation, pagination, caching, and performance improvements.
-- Rate limiting, stricter validation, security headers, and audit logging.
-- Unit, API, accessibility, and end-to-end test coverage.
-- CI checks, monitoring, and deployment documentation.
-- Internationalization and timezone-aware expiry dates.
-- A community recipe import format and moderation workflow.
+- Image storage, caching, and performance improvements.
 
 ## Architecture
 
@@ -247,6 +238,11 @@ The default development URLs are `http://localhost:5000` for the API and
   image upload and manual entry remain available.
 - **Notifications do not appear:** grant permission and enable reminders in the
   Pantry page.
+
+## Hosting
+
+- [Live Site](https://recipe-planner-xi.vercel.app/)
+- [GitHub Repo](https://github.com/naviru88/JustInTime)
 
 ## Security and privacy
 
