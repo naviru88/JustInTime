@@ -129,3 +129,134 @@ other recipe is.
   than creating a duplicate.
 - Sessions are JWTs valid for 30 days, sent as `Authorization: Bearer
   <token>` and stored in `localStorage` on the client.
+
+## Features
+
+### Implemented
+
+- Email/password auth with bcrypt and optional Google Sign-In.
+- JWT-protected, user-scoped pantry and meal-plan data.
+- Pantry items with quantity, unit, expiry date, and barcode fields.
+- Expiry-aware urgency badges and browser/device expiry reminders.
+- Barcode camera scanning, barcode image upload, and Open Food Facts lookup.
+- Pantry/fridge photo recognition through OpenRouter, with review before saving.
+- Recipe matching ranked by availability and ingredient urgency.
+- Vegetarian, vegan, and gluten-free filters.
+- AI recipe generation from pantry contents through OpenRouter.
+- Seeded and generated recipe catalog with deletion support.
+- Grocery lists for selected recipes, grouped by category.
+- Weekly breakfast, lunch, and dinner planning with week navigation.
+- Best-effort openly licensed recipe imagery through Openverse.
+- Responsive desktop sidebar and mobile sticky header navigation.
+- Mobile overflow protection; only the meal calendar scrolls horizontally.
+
+### Planned features
+
+These are open roadmap ideas rather than fixed commitments:
+
+- Pantry editing, search, sorting, categories, and bulk actions.
+- Recipe details, serving scaling, nutrition information, favorites, and collections.
+- Drag-and-drop and recurring meal plans.
+- Grocery-list export, sharing, and store-aware organization.
+- More dietary preferences, allergies, cuisines, and custom tags.
+- Image storage and moderation, pagination, caching, and performance improvements.
+- Rate limiting, stricter validation, security headers, and audit logging.
+- Unit, API, accessibility, and end-to-end test coverage.
+- CI checks, monitoring, and deployment documentation.
+- Internationalization and timezone-aware expiry dates.
+- A community recipe import format and moderation workflow.
+
+## Architecture
+
+```text
+backend/     Express API, MongoDB models, auth, matching, and AI services
+frontend/    React/Vite client, routing, forms, scanner UI, calendar, notifications
+```
+
+The frontend uses Axios to call the backend. Authenticated requests send the
+JWT as a bearer token. The backend connects to MongoDB before handling routes,
+which also supports serverless deployment.
+
+## API overview
+
+All routes below require a JWT unless marked public:
+
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `/api/health` | Public health check |
+| POST | `/api/auth/signup` | Create an account |
+| POST | `/api/auth/login` | Email/password login |
+| POST | `/api/auth/google` | Google login |
+| GET/POST/DELETE | `/api/pantry` | Read, add, and remove pantry items |
+| POST | `/api/food/barcode` | Look up a barcode |
+| GET | `/api/recipes` | Fetch matched recipes |
+| POST | `/api/recipes/generate` | Generate AI recipes |
+| DELETE | `/api/recipes/:id` | Delete a recipe |
+| POST | `/api/grocery` | Build a grocery list |
+| GET/POST/DELETE | `/api/mealplan` | Read, assign, and clear meal slots |
+
+Check the route and controller files for exact request and response schemas.
+New UI should handle loading, empty, validation, and provider-failure states.
+
+## Development workflow
+
+The repository has separate frontend and backend packages; there is no root
+`package.json`:
+
+```bash
+# Terminal 1
+cd backend
+npm install
+cp .env.example .env
+# Set MONGO_URI and JWT_SECRET at minimum.
+npm run seed
+npm run dev
+
+# Terminal 2
+cd frontend
+npm install
+cp .env.example .env
+npm run dev
+```
+
+Useful commands:
+
+```bash
+cd backend
+npm start
+npm run seed
+
+cd frontend
+npm run build
+npm run preview
+```
+
+The default development URLs are `http://localhost:5000` for the API and
+`http://localhost:5173` for the frontend.
+
+## Troubleshooting
+
+- **Data does not load:** check that MongoDB and the backend are running, and
+  that `VITE_API_URL` points to the API.
+- **No recipes appear:** run `npm run seed` in `backend`.
+- **Google login is missing:** configure both Google client ID variables and
+  authorize the frontend origin in Google Cloud.
+- **AI actions fail:** check `OPENROUTER_API_KEY` and use a vision-capable model
+  for photo recognition.
+- **Camera scanning fails:** use localhost or HTTPS and grant camera access;
+  image upload and manual entry remain available.
+- **Notifications do not appear:** grant permission and enable reminders in the
+  Pantry page.
+
+## Security and privacy
+
+Never commit `.env`, `.env.local`, API keys, JWT secrets, database URLs, or user
+uploads. Use strong production secrets and restrict CORS before public
+deployment. Review external provider retention and privacy policies when
+enabling AI or image features.
+
+## License
+
+No license has been selected yet. Until one is added, the source should be
+treated as all-rights-reserved. See `CONTRIBUTIONS.md` for contribution
+guidance.
