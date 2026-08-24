@@ -14,7 +14,7 @@ const DEFAULT_VISION_MODEL = "meta-llama/llama-3.2-11b-vision-instruct:free";
 const SYSTEM_PROMPT = `You are a food inventory vision model. Identify every individual food item visible in photos of a fridge, freezer, or pantry shelf.
 
 Respond with ONLY a JSON array (no prose, no markdown fences) of objects shaped like:
-[{"name": "eggs", "quantity": 6, "unit": "ct", "category": "egg"}]
+ [{"name": "eggs", "quantity": 6, "unit": "ct", "category": "egg", "confidence": 0.94}]
 
 Rules:
 - Return one entry for each distinct, visually identifiable item. If a photo shows one apple, return one entry with quantity 1. If it shows three separate apples, return one entry with quantity 3. If it shows a carton of eggs, return one entry for that carton and use the egg count as quantity.
@@ -23,6 +23,7 @@ Rules:
 - "quantity" is your best visual estimate as a plain number (count items, or estimate weight/volume if that's clearer — pick whichever is more natural for that food). Default to 1 if you can't tell.
 - "unit" is a short unit like "ct", "g", "kg", "ml", "l", or "" if quantity is just a count of whole items.
 - "category" is a single lowercase word describing the food type (e.g. "dairy", "vegetable", "meat", "fruit", "bakery", "canned", "frozen", "beverage", "condiment", "grain") — used to estimate shelf life, so pick the closest match.
+- "confidence" is your confidence that the item identification is correct, from 0 to 1.
 - Ignore non-food objects (containers, shelves, labels facing away, etc.) unless you can identify the food inside/under them.
 - If you genuinely can't identify any food items, return [].`;
 
@@ -127,5 +128,9 @@ export const identifyPantryItemsFromPhotos = async (photos) => {
       quantity: typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1,
       unit: typeof item.unit === "string" ? item.unit.trim() : "",
       category: typeof item.category === "string" ? item.category.trim().toLowerCase() : "",
+      confidence:
+        typeof item.confidence === "number" && item.confidence >= 0 && item.confidence <= 1
+          ? item.confidence
+          : null,
     }));
 };

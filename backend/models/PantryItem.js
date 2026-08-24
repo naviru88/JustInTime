@@ -29,6 +29,23 @@ const pantryItemSchema = new mongoose.Schema(
       default: null,
       trim: true,
     },
+    source: {
+      type: String,
+      enum: ["manual", "barcode", "image"],
+      default: "manual",
+    },
+    confidence: {
+      type: Number,
+      min: 0,
+      max: 1,
+      default: null,
+    },
+    category: {
+      type: String,
+      default: "",
+      trim: true,
+      lowercase: true,
+    },
     expiryDate: {
       type: Date,
       default: null, // null = no known expiry

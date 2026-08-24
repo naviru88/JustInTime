@@ -12,6 +12,8 @@ export default function PhotoRecognitionOverlay({ items, onAddSelected, onClose,
       quantity: String(item.quantity ?? 1),
       unit: item.unit || "",
       expiryDate: item.expiryDate || "",
+        category: item.category || "",
+        confidence: item.confidence,
     }))
   );
 
@@ -29,6 +31,9 @@ export default function PhotoRecognitionOverlay({ items, onAddSelected, onClose,
         quantity: r.quantity ? Number(r.quantity) : 1,
         unit: r.unit.trim(),
         expiryDate: r.expiryDate || null,
+        category: r.category,
+        confidence: r.confidence,
+        source: "image",
       }));
     if (selected.length > 0) onAddSelected(selected);
   };

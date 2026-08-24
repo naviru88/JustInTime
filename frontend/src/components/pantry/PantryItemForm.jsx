@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import BarcodeScanner from "./BarcodeScanner.jsx";
 import ScanResultOverlay from "./ScanResultOverlay.jsx";
+import PhotoRecognitionOverlay from "./PhotoRecognitionOverlay.jsx";
 import { lookupBarcode, recognizePantryPhotos } from "../../services/api.js";
 
 export default function PantryItemForm({ onAdd }) {
@@ -80,6 +81,7 @@ export default function PantryItemForm({ onAdd }) {
           unit: result.unit || "",
           expiryDate: result.expiryDate || null,
           barcode: result.barcode,
+          source: "barcode",
         });
         setBatchStatus(`Added ${result.name} to your pantry.`);
         resetForm();
@@ -112,6 +114,7 @@ export default function PantryItemForm({ onAdd }) {
               unit: result.unit || "",
               expiryDate: result.expiryDate || null,
               barcode: result.barcode,
+              source: "barcode",
             });
             added += 1;
           } else {
@@ -160,8 +163,9 @@ export default function PantryItemForm({ onAdd }) {
     setScanResult(null);
   };
 
-  // "Scan photo" — identifies every distinct food item visible and adds one
-  // pantry entry per detected item with AI-estimated details.
+  // "Scan photo" — identifies every distinct food item visible and opens a
+  // confirmation list. Recognition results stay separate from the real pantry
+  // until the user explicitly adds the selected entries.
   const handlePhotoScanChange = async (e) => {
     const files = Array.from(e.target.files || []);
     e.target.value = "";
@@ -171,16 +175,22 @@ export default function PantryItemForm({ onAdd }) {
     setRecognizing(true);
     try {
       const items = await recognizePantryPhotos(files);
-      if (items.length === 0) {
-        setBatchStatus("Couldn't identify any food in that photo. Try a clearer, closer shot.");
-      } else {
-        items.forEach((item) => onAdd(item));
-        setBatchStatus(`Added ${items.length} item${items.length === 1 ? "" : "s"} from photo.`);
-      }
+      setRecognizedItems(items);
     } catch {
       setBatchStatus("Couldn't analyze that photo — try again or add items manually.");
     } finally {
       setRecognizing(false);
+    }
+  };
+
+  const handleAddRecognizedItems = async (items) => {
+    setRecognitionAdding(true);
+    try {
+      for (const item of items) await onAdd(item);
+      setRecognizedItems(null);
+      setBatchStatus(`Added ${items.length} item${items.length === 1 ? "" : "s"} from photo.`);
+    } finally {
+      setRecognitionAdding(false);
     }
   };
 
@@ -308,6 +318,14 @@ export default function PantryItemForm({ onAdd }) {
         />
       )}
 
+      {recognizedItems && (
+        <PhotoRecognitionOverlay
+          items={recognizedItems}
+          onAddSelected={handleAddRecognizedItems}
+          onClose={() => setRecognizedItems(null)}
+          adding={recognitionAdding}
+        />
+      )}
     </>
   );
 }

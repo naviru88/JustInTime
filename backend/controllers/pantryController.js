@@ -15,7 +15,7 @@ export const getPantryItems = async (req, res, next) => {
 // POST /api/pantry
 export const addPantryItem = async (req, res, next) => {
   try {
-    const { name, quantity, unit, expiryDate, barcode } = req.body;
+    const { name, quantity, unit, expiryDate, barcode, source, confidence, category } = req.body;
     if (!name) {
       return res.status(400).json({ message: "Ingredient name is required" });
     }
@@ -26,6 +26,9 @@ export const addPantryItem = async (req, res, next) => {
       unit,
       expiryDate,
       barcode,
+      source: source || (barcode ? "barcode" : "manual"),
+      confidence,
+      category,
     });
     res.status(201).json(item);
   } catch (err) {
@@ -56,7 +59,7 @@ const parseQuantity = (quantityText) => {
 // the pantry form can prefill a name/unit instead of the user typing it.
 export const lookupBarcode = async (req, res, next) => {
   try {
-    const { barcode } = req.params;
+    const barcode = req.params.barcode || req.body?.barcode;
     if (!barcode || !/^\d{6,14}$/.test(barcode)) {
       return res.status(400).json({ message: "A numeric barcode (6-14 digits) is required" });
     }
@@ -169,6 +172,9 @@ export const recognizePantryPhotos = async (req, res, next) => {
         unit: item.unit,
         expiryDate: expiryDateFromToday(shelfLifeDays),
         estimatedExpiry: true,
+        source: "image",
+        confidence: item.confidence,
+        category: item.category,
       };
     });
 

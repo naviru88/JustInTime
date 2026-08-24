@@ -6,6 +6,7 @@ import recipeRoutes from "./routes/recipeRoutes.js";
 import groceryRoutes from "./routes/groceryRoutes.js";
 import mealPlanRoutes from "./routes/mealPlanRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import foodRoutes from "./routes/foodRoutes.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 
 const app = express();
@@ -32,6 +33,7 @@ app.use("/api/recipes", recipeRoutes);
 app.use("/api/grocery", groceryRoutes);
 app.use("/api/mealplan", mealPlanRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/food", foodRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

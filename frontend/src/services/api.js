@@ -43,7 +43,7 @@ export const updatePantryItem = (id, updates) =>
   api.put(`/pantry/${id}`, updates).then((r) => r.data);
 export const deletePantryItem = (id) => api.delete(`/pantry/${id}`).then((r) => r.data);
 export const lookupBarcode = (barcode) =>
-  api.get(`/pantry/lookup/${barcode}`).then((r) => r.data);
+  api.post("/food/barcode", { barcode }).then((r) => r.data);
 // Analyzes photos of a fridge/pantry and returns detected food items —
 // nothing is saved, this is purely to derive text fields for review before
 // adding to the pantry. The photos themselves are never persisted.
