@@ -1,5 +1,13 @@
 node_modules/
-.env
 dist/
+.env*
+!.env.example
+!.env.*.example
+attached_assets/
+.local/
+.cache/
+.agents/
+.vercel/
+*.zip
 *.log
 .DS_Store

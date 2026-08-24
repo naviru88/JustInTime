@@ -28,6 +28,21 @@
   box-sizing: border-box;
 }
 
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  max-width: 100%;
+  font: inherit;
+}
+
 html,
 body,
 #root {
@@ -162,6 +177,10 @@ body::after {
 
 .sidebar-toggle:hover {
   background: var(--color-surface-strong);
+}
+
+.mobile-menu-button {
+  display: none;
 }
 
 .sidebar-nav {
@@ -1571,57 +1590,99 @@ h1 {
   }
 }
 
-/* Phone: keep the same navigation model as web, but use a compact fixed
-   rail. This leaves the full height available for the pantry and avoids the
-   cramped, overflowing bottom tab bar on short screens. */
+/* Phone: turn the desktop sidebar into a compact top header. The navigation
+   remains the same, but it opens below the header so the page gets the full
+   viewport width and can grow naturally vertically. */
 @media (max-width: 680px) {
   .app-shell {
     display: block;
   }
 
   .app-main {
-    margin-left: 76px;
+    margin: 0;
     max-width: none;
-    width: calc(100% - 76px);
-    padding: 18px 14px 48px;
+    width: 100%;
+    padding: 20px 14px 48px;
   }
 
   .sidebar {
-    position: fixed;
-    inset: 0 auto 0 0;
-    width: 76px;
-    height: 100vh;
+    position: sticky;
+    top: 0;
+    width: 100%;
+    height: auto;
+    min-height: 0;
     flex-direction: column;
-    align-items: stretch;
-    padding: 16px 10px;
+    padding: max(10px, env(safe-area-inset-top)) 14px 10px;
     border-right: none;
-    border-right: 1px solid var(--color-border);
-    border-top: none;
+    border-bottom: 1px solid var(--color-border);
     box-shadow: 8px 0 24px rgba(14, 58, 38, 0.12);
     z-index: 50;
   }
 
+  .sidebar.collapsed {
+    width: 100%;
+  }
+
   .sidebar-top {
+    min-height: 38px;
+    margin: 0;
+  }
+
+  .sidebar-brand {
+    min-width: 0;
+  }
+
+  .sidebar-brand-text {
+    display: inline !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sidebar-toggle {
+    display: none;
+  }
+
+  .mobile-menu-button {
     display: flex;
+    align-items: center;
     justify-content: center;
-    margin-bottom: 24px;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-hover);
+    color: var(--color-ink);
+    cursor: pointer;
+    font-size: 22px;
+    line-height: 1;
   }
 
   .sidebar-nav {
-    flex: none;
+    display: none;
+    min-width: 0;
+    padding: 12px 0 4px;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .sidebar.mobile-open .sidebar-nav {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    min-width: 0;
+    gap: 4px;
   }
 
   .sidebar-link {
     min-width: 0; /* flex items don't shrink below content size by default — this is what actually lets a tab compress instead of overflowing the bar */
-    justify-content: center;
-    gap: 0;
-    padding: 11px 10px;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 11px 12px;
     border-radius: var(--radius-sm);
-    text-align: center;
+    text-align: left;
+  }
+
+  .sidebar.collapsed .sidebar-link {
+    justify-content: flex-start;
+    padding: 11px 12px;
   }
 
   .sidebar-link-icon {
@@ -1630,22 +1691,30 @@ h1 {
   }
 
   .sidebar-link-label {
-    display: none;
+    display: inline !important;
   }
 
   .sidebar-bottom {
-    margin-top: auto;
-    padding-top: 14px;
+    display: none;
+  }
+
+  .sidebar.mobile-open .sidebar-bottom {
+    display: flex;
+    margin-top: 8px;
+    padding-top: 12px;
     flex-direction: column;
+    align-items: stretch;
+    border-top: 1px solid var(--color-border);
   }
 
   .sidebar-user-name {
-    display: none;
+    display: block !important;
+    padding: 0 12px 8px;
   }
 
   .sidebar-logout {
     width: 100%;
-    justify-content: center;
+    justify-content: flex-start;
     padding: 11px 10px;
   }
 
@@ -1713,14 +1782,25 @@ h1 {
     max-width: calc(100vw - 16px);
     padding: 26px 20px;
   }
+
+  .page-subtitle {
+    margin-bottom: 20px;
+  }
+
+  .card,
+  .recipe-card {
+    min-width: 0;
+  }
+
+  .pantry-item-left {
+    flex: 1 1 180px;
+  }
 }
 
 /* Small phone: tighten spacing further */
 @media (max-width: 400px) {
   .app-main {
-    margin-left: 68px;
-    width: calc(100% - 68px);
-    padding: 14px 10px 40px;
+    padding: 16px 10px 40px;
   }
 
   h1 {

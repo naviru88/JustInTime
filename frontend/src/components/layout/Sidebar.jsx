@@ -12,6 +12,7 @@ const COLLAPSE_KEY = "jit_sidebar_collapsed";
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   // Defaults to collapsed on narrow screens so it doesn't eat the whole
   // viewport on first load; otherwise respects whatever the person left it as.
@@ -33,8 +34,10 @@ export default function Sidebar() {
     }
   }, [collapsed]);
 
+  const closeMobileMenu = () => setMobileOpen(false);
+
   return (
-    <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
+    <aside className={`sidebar ${collapsed ? "collapsed" : ""} ${mobileOpen ? "mobile-open" : ""}`}>
       <div className="sidebar-top">
         <div className="sidebar-brand">
           <span className="sidebar-brand-mark" role="img" aria-label="Just In Time">
@@ -52,9 +55,19 @@ export default function Sidebar() {
         >
           {collapsed ? "»" : "«"}
         </button>
+        <button
+          type="button"
+          className="mobile-menu-button"
+          onClick={() => setMobileOpen((open) => !open)}
+          aria-expanded={mobileOpen}
+          aria-controls="primary-navigation"
+          aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
+        >
+          <span aria-hidden="true">{mobileOpen ? "×" : "☰"}</span>
+        </button>
       </div>
 
-      <nav className="sidebar-nav">
+      <nav id="primary-navigation" className="sidebar-nav" aria-label="Primary navigation">
         {NAV_ITEMS.map((item) => (
           <NavLink
             key={item.to}
@@ -62,6 +75,7 @@ export default function Sidebar() {
             end={item.end}
             className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
             title={collapsed ? item.label : undefined}
+            onClick={closeMobileMenu}
           >
             <span className="sidebar-link-icon" role="img" aria-hidden="true">
               {item.icon}
