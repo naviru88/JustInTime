@@ -10,9 +10,19 @@ import { BarcodeFormat, DecodeHintType, NotFoundException } from "@zxing/library
 // fine in a desktop Chrome tab. Using the same decoder for both paths means
 // "works in the browser" and "works in the app" are the same code path.
 const HINTS = new Map([
+  [DecodeHintType.TRY_HARDER, true],
   [
     DecodeHintType.POSSIBLE_FORMATS,
-    [BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E, BarcodeFormat.CODE_128],
+    [
+      BarcodeFormat.EAN_13,
+      BarcodeFormat.EAN_8,
+      BarcodeFormat.UPC_A,
+      BarcodeFormat.UPC_E,
+      BarcodeFormat.CODE_128,
+      BarcodeFormat.CODE_39,
+      BarcodeFormat.ITF,
+      BarcodeFormat.CODABAR,
+    ],
   ],
 ]);
 
@@ -84,8 +94,31 @@ export default function BarcodeScanner({ onDetect, onDetectBatch, onClose }) {
   const decodePhoto = async (file) => {
     const url = URL.createObjectURL(file);
     try {
-      const result = await getZxingReader().decodeFromImageUrl(url);
-      return result.getText();
+      const image = new Image();
+      image.src = url;
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = reject;
+      });
+
+      // Product photos are frequently downscaled by mobile pickers. Decode a
+      // large, high-contrast canvas first, then fall back to the original
+      // image for unusual formats.
+      const maxDimension = 1800;
+      const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      try {
+        const result = await getZxingReader().decodeFromCanvas(canvas);
+        return result.getText();
+      } catch (canvasError) {
+        if (!(canvasError instanceof NotFoundException)) throw canvasError;
+        const result = await getZxingReader().decodeFromImageUrl(url);
+        return result.getText();
+      }
     } catch (err) {
       if (err instanceof NotFoundException) return null;
       throw err;
@@ -192,7 +225,6 @@ export default function BarcodeScanner({ onDetect, onDetectBatch, onClose }) {
             ref={photoInputRef}
             type="file"
             accept="image/*"
-            capture="environment"
             multiple
             onChange={handlePhotoPick}
             hidden

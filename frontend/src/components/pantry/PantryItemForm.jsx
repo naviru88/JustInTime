@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import BarcodeScanner from "./BarcodeScanner.jsx";
 import ScanResultOverlay from "./ScanResultOverlay.jsx";
-import PhotoRecognitionOverlay from "./PhotoRecognitionOverlay.jsx";
 import { lookupBarcode, recognizePantryPhotos } from "../../services/api.js";
 
 export default function PantryItemForm({ onAdd }) {
@@ -12,6 +11,7 @@ export default function PantryItemForm({ onAdd }) {
   const [barcode, setBarcode] = useState(null);
 
   const photoInputRef = useRef(null);
+  const cameraPhotoInputRef = useRef(null);
 
   const [scannerOpen, setScannerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -71,14 +71,25 @@ export default function PantryItemForm({ onAdd }) {
       const result = await lookupBarcode(code);
       if (result.found) {
         setLookupStatus(null);
-        setScanResult(result); // hand off to the overlay rather than filling the form silently
+        // A successful scan is already a complete pantry item. Add it
+        // immediately; the lookup supplies quantity, unit and an estimated
+        // shelf-life date so the user never has to retype the product.
+        onAdd({
+          name: result.name,
+          quantity: result.quantity ?? 1,
+          unit: result.unit || "",
+          expiryDate: result.expiryDate || null,
+          barcode: result.barcode,
+        });
+        setBatchStatus(`Added ${result.name} to your pantry.`);
+        resetForm();
       } else {
         setLookupStatus("not-found");
       }
     } catch {
       setLookupStatus("error");
     }
-  }, []);
+  }, [onAdd]);
 
   // Several barcode photos picked at once — look each one up and add every
   // match straight to the pantry (no per-item confirmation), so the list
@@ -149,9 +160,8 @@ export default function PantryItemForm({ onAdd }) {
     setScanResult(null);
   };
 
-  // "Scan photo" — takes a picture of the fridge/pantry shelf, identifies
-  // what food is visible, and opens a review overlay so those items can be
-  // added straight to the list (nothing is added until the person confirms).
+  // "Scan photo" — identifies every distinct food item visible and adds one
+  // pantry entry per detected item with AI-estimated details.
   const handlePhotoScanChange = async (e) => {
     const files = Array.from(e.target.files || []);
     e.target.value = "";
@@ -161,20 +171,17 @@ export default function PantryItemForm({ onAdd }) {
     setRecognizing(true);
     try {
       const items = await recognizePantryPhotos(files);
-      setRecognizedItems(items);
+      if (items.length === 0) {
+        setBatchStatus("Couldn't identify any food in that photo. Try a clearer, closer shot.");
+      } else {
+        items.forEach((item) => onAdd(item));
+        setBatchStatus(`Added ${items.length} item${items.length === 1 ? "" : "s"} from photo.`);
+      }
     } catch {
       setBatchStatus("Couldn't analyze that photo — try again or add items manually.");
     } finally {
       setRecognizing(false);
     }
-  };
-
-  const handleAddRecognizedItems = (items) => {
-    setRecognitionAdding(true);
-    items.forEach((item) => onAdd(item));
-    setRecognitionAdding(false);
-    setRecognizedItems(null);
-    setBatchStatus(`Added ${items.length} item${items.length === 1 ? "" : "s"} from photo.`);
   };
 
   return (
@@ -208,16 +215,34 @@ export default function PantryItemForm({ onAdd }) {
                 role="menuitem"
                 onClick={() => {
                   setMenuOpen(false);
-                  photoInputRef.current?.click();
+                   cameraPhotoInputRef.current?.click();
                 }}
               >
-                🧊 Scan fridge/pantry photo
+                 📷 Take pantry photo
+               </button>
+               <button
+                 type="button"
+                 role="menuitem"
+                 onClick={() => {
+                   setMenuOpen(false);
+                   photoInputRef.current?.click();
+                 }}
+               >
+                 🖼️ Choose from gallery
               </button>
             </div>
           )}
 
           <input
             ref={photoInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            multiple
+            onChange={handlePhotoScanChange}
+            hidden
+          />
+          <input
+            ref={cameraPhotoInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
             capture="environment"
@@ -283,14 +308,6 @@ export default function PantryItemForm({ onAdd }) {
         />
       )}
 
-      {recognizedItems && (
-        <PhotoRecognitionOverlay
-          items={recognizedItems}
-          onAddSelected={handleAddRecognizedItems}
-          onClose={() => setRecognizedItems(null)}
-          adding={recognitionAdding}
-        />
-      )}
     </>
   );
 }

@@ -1561,53 +1561,55 @@ h1 {
   }
 }
 
-/* Phone: the side rail becomes a fixed bottom tab bar (a familiar mobile
-   pattern for 3-4 top-level destinations), and forms/lists that assumed
-   desktop width reflow to single/two-column layouts. */
+/* Phone: keep the same navigation model as web, but use a compact fixed
+   rail. This leaves the full height available for the pantry and avoids the
+   cramped, overflowing bottom tab bar on short screens. */
 @media (max-width: 680px) {
   .app-shell {
-    flex-direction: column;
+    display: block;
   }
 
   .app-main {
-    padding: 18px 14px 84px; /* bottom padding clears the fixed tab bar */
+    margin-left: 76px;
+    max-width: none;
+    padding: 18px 14px 48px;
   }
 
   .sidebar {
     position: fixed;
-    inset: auto 0 0 0;
-    top: auto;
-    width: 100%;
-    height: 60px;
-    flex-direction: row;
+    inset: 0 auto 0 0;
+    width: 76px;
+    height: 100vh;
+    flex-direction: column;
     align-items: stretch;
-    padding: 0;
+    padding: 16px 10px;
     border-right: none;
-    border-top: 1px solid var(--color-border);
-    box-shadow: 0 -8px 24px rgba(14, 58, 38, 0.12);
+    border-right: 1px solid var(--color-border);
+    border-top: none;
+    box-shadow: 8px 0 24px rgba(14, 58, 38, 0.12);
     z-index: 50;
   }
 
   .sidebar-top {
-    display: none;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 24px;
   }
 
   .sidebar-nav {
-    flex: 3; /* 3 links; paired with .sidebar-bottom's flex: 1 below, that's 4 equal-width tabs total */
+    flex: none;
     display: flex;
-    flex-direction: row;
-    gap: 0;
+    flex-direction: column;
+    gap: 6px;
     min-width: 0;
   }
 
   .sidebar-link {
-    flex: 1;
     min-width: 0; /* flex items don't shrink below content size by default — this is what actually lets a tab compress instead of overflowing the bar */
-    flex-direction: column;
     justify-content: center;
-    gap: 2px;
-    padding: 6px 2px;
-    border-radius: 0;
+    gap: 0;
+    padding: 11px 10px;
+    border-radius: var(--radius-sm);
     text-align: center;
   }
 
@@ -1617,19 +1619,13 @@ h1 {
   }
 
   .sidebar-link-label {
-    font-size: 10px;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: none;
   }
 
   .sidebar-bottom {
-    flex: 1; /* matches one nav link's share, so logout is the 4th equal tab */
-    min-width: 0;
-    margin-top: 0;
-    padding-top: 0;
-    border-top: none;
+    margin-top: auto;
+    padding-top: 14px;
+    flex-direction: column;
   }
 
   .sidebar-user-name {
@@ -1638,37 +1634,17 @@ h1 {
 
   .sidebar-logout {
     width: 100%;
-    min-width: 0;
-    flex-direction: column;
-    gap: 2px;
-    height: 100%;
-    border: none;
-    background: transparent;
-    border-radius: 0;
-    padding: 6px 2px;
+    justify-content: center;
+    padding: 11px 10px;
   }
 
   .sidebar-logout-icon {
     font-size: 19px;
+    display: inline;
   }
 
   .sidebar-logout-label {
-    font-size: 10px;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  /* The bottom bar always shows icon+label — there's no room to "collapse"
-     it further, regardless of the rail's collapsed preference on desktop. */
-  .sidebar.collapsed .sidebar-link-label,
-  .sidebar.collapsed .sidebar-logout-label {
-    display: block;
-  }
-
-  .sidebar.collapsed .sidebar-logout-icon {
-    display: inline;
+    display: none;
   }
 
   /* Pantry add-item form: 6 fixed columns don't fit a phone screen, so
@@ -1730,7 +1706,8 @@ h1 {
 /* Small phone: tighten spacing further */
 @media (max-width: 400px) {
   .app-main {
-    padding: 14px 10px 84px;
+    margin-left: 68px;
+    padding: 14px 10px 40px;
   }
 
   h1 {
