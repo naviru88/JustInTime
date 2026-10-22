@@ -1,10 +1,11 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+// backend/api/index.js
 import app from "../app.js";
+import connectDB from "../config/db.js";
 
-// Vercel invokes this file's default export as (req, res) for every request
-// matched by vercel.json's rewrite — Express apps already implement that
-// same (req, res) => {} signature, so we can export it directly with no
-// adapter needed.
+// Connect to DB before handling the request (with caching)
+connectDB();
+
 export default app;
