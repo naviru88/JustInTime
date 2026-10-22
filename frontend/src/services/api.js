@@ -107,7 +107,14 @@ export const recognizePantryPhotos = async (files) => {
   const form = new FormData();
   prepared.forEach((file) => form.append("photos", file));
   form.append("today", localToday());
-  return api.post("/pantry/recognize-photos", form).then((r) => r.data.items);
+  
+  try {
+    const response = await api.post("/pantry/recognize-photos", form);
+    return response.data.items;
+  } catch (error) {
+    const backendMessage = error.response?.data?.message;
+    throw new Error(backendMessage || "Network error: Could not reach the server.");
+  }
 };
 
 export const fetchAllRecipes = () => api.get("/recipes").then((r) => r.data);

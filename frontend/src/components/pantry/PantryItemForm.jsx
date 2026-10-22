@@ -85,7 +85,6 @@ export default function PantryItemForm({ onAdd, onBarcodeBatch, onPhotoScan }) {
         return;
       }
 
-      // Single barcode scanned.
       setLookupStatus(null);
       if (onBarcodeBatch) {
         onBarcodeBatch([code]);
@@ -121,11 +120,7 @@ export default function PantryItemForm({ onAdd, onBarcodeBatch, onPhotoScan }) {
         onPhotoScan(items);
       }
     } catch (error) {
-      setBatchStatus(
-        error.response?.data?.message ||
-          error.message ||
-          "Couldn't analyze that photo — try again or add items manually."
-      );
+      setBatchStatus(error.message);
     } finally {
       setRecognizing(false);
     }
