@@ -92,7 +92,6 @@ export const addPantryItems = async (req, res, next) => {
         const created = await PantryItem.create(normalized.value);
         results.success.push(created);
       } catch (dbErr) {
-        console.error("DB Error saving item:", dbErr);
         results.failed.push({ item, error: "Database rejected this item." });
       }
     }
@@ -123,17 +122,16 @@ export const lookupBarcode = async (req, res, next) => {
         `https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=product_name,quantity,brands,categories_tags`,
         {
           signal: controller.signal,
-          headers: { "User-Agent": "JustInTimeExpiryRecipePlanner/1.0 (Contact: your-email@example.com)" },
+          // Using a standard browser user-agent can sometimes bypass Vercel IP blocks
+          headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" },
         }
       );
       
       if (!response.ok) {
-        console.error(`OpenFoodFacts API Error: ${response.status} ${response.statusText}`);
         return res.json({ found: false, barcode, lookupUnavailable: true });
       }
       payload = await response.json();
     } catch (err) {
-      console.error("Barcode fetch failed:", err.message);
       throw err;
     } finally {
       clearTimeout(timeout);
@@ -159,7 +157,6 @@ export const lookupBarcode = async (req, res, next) => {
       category: categories_tags?.[0]?.replace("en:", "") || "pantry",
     });
   } catch (err) {
-    console.error("Barcode lookup caught error:", err);
     return res.json({
       found: false,
       barcode: String(req.params.barcode || req.body?.barcode || ""),
@@ -250,11 +247,11 @@ export const recognizePantryPhotos = async (req, res, next) => {
     try {
       detected = await identifyPantryItemsFromPhotos(photos);
     } catch (visionErr) {
-      console.error("Vision Service Error:", visionErr);
       if (visionErr.code === "OPENROUTER_NOT_CONFIGURED") {
-        return res.status(503).json({ message: "Photo recognition isn't configured on this server yet." });
+        return res.status(503).json({ message: "OPENROUTER_API_KEY is missing on Vercel." });
       }
-      throw visionErr;
+      // Return the actual OpenRouter error message to the frontend
+      return res.status(502).json({ message: visionErr.message });
     }
 
     const items = detected.map((item) => {
@@ -274,16 +271,6 @@ export const recognizePantryPhotos = async (req, res, next) => {
 
     res.json({ items });
   } catch (err) {
-    console.error("Photo Recognition Endpoint Error:", err);
-    if (
-      err.code === "OPENROUTER_TIMEOUT" ||
-      err.code === "OPENROUTER_REQUEST_FAILED" ||
-      err.code === "OPENROUTER_INVALID_RESPONSE"
-    ) {
-      return res.status(502).json({
-        message: "Photo recognition could not complete. Try fewer or clearer photos, or enter the items manually.",
-      });
-    }
     next(err);
   }
 };
