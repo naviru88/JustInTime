@@ -14,7 +14,7 @@ const DEFAULT_VISION_MODEL = "meta-llama/llama-3.2-11b-vision-instruct:free";
 const SYSTEM_PROMPT = `You are a food inventory vision model. Identify every individual food item visible in photos of a fridge, freezer, or pantry shelf.
 
 Respond with ONLY a JSON array (no prose, no markdown fences) of objects shaped like:
- [{"name": "eggs", "quantity": 6, "unit": "ct", "category": "egg", "confidence": 0.94}]
+ [{"name": "eggs", "quantity": 6, "unit": "ct", "category": "egg", "confidence": 0.94, "expiryDate": null}]
 
 Rules:
 - Return one entry for each distinct, visually identifiable item. If a photo shows one apple, return one entry with quantity 1. If it shows three separate apples, return one entry with quantity 3. If it shows a carton of eggs, return one entry for that carton and use the egg count as quantity.
@@ -24,13 +24,14 @@ Rules:
 - "unit" is a short unit like "ct", "g", "kg", "ml", "l", or "" if quantity is just a count of whole items.
 - "category" is a single lowercase word describing the food type (e.g. "dairy", "vegetable", "meat", "fruit", "bakery", "canned", "frozen", "beverage", "condiment", "grain") — used to estimate shelf life, so pick the closest match.
 - "confidence" is your confidence that the item identification is correct, from 0 to 1.
+- "expiryDate" must be a YYYY-MM-DD date only when a printed use-by, best-before, or expiry date is clearly legible and visibly belongs to that item. Otherwise return null. Never infer a printed date from the food type, packaging, or current date.
 - Ignore non-food objects (containers, shelves, labels facing away, etc.) unless you can identify the food inside/under them.
 - If you genuinely can't identify any food items, return [].`;
 
 const MEDIA_TYPE_BY_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 // photos: [{ data: Buffer, mimeType: string }]
-// Returns: [{ name, quantity, unit, category }]
+// Returns: [{ name, quantity, unit, category, confidence, expiryDate }]
 export const identifyPantryItemsFromPhotos = async (photos) => {
   if (!photos || photos.length === 0) return [];
 
@@ -87,24 +88,37 @@ export const identifyPantryItemsFromPhotos = async (photos) => {
     });
 
     if (!response.ok) {
-      const errBody = await response.text().catch(() => "");
-      const err = new Error(`OpenRouter vision request failed (${response.status}): ${errBody.slice(0, 300)}`);
+      const err = new Error(`OpenRouter vision request failed (${response.status}).`);
       err.code = "OPENROUTER_REQUEST_FAILED";
       throw err;
     }
 
     payload = await response.json();
+  } catch (err) {
+    if (err.name === "AbortError") {
+      err.code = "OPENROUTER_TIMEOUT";
+    } else if (!err.code) {
+      err.code = "OPENROUTER_REQUEST_FAILED";
+    }
+    throw err;
   } finally {
     clearTimeout(timeout);
   }
 
   const content = payload?.choices?.[0]?.message?.content;
-  if (!content) return [];
+  const text = Array.isArray(content)
+    ? content.map((block) => (typeof block === "string" ? block : block?.text || "")).join("\n")
+    : content;
+  if (typeof text !== "string" || !text.trim()) {
+    const err = new Error("The vision model returned no readable result.");
+    err.code = "OPENROUTER_INVALID_RESPONSE";
+    throw err;
+  }
 
   // Some vision models add a short sentence despite the JSON-only request.
   // Strip fences and isolate the outer array so a useful response is not
   // discarded just because of that wrapper text.
-  const cleaned = content.replace(/```json|```/gi, "").trim();
+  const cleaned = text.replace(/```json|```/gi, "").trim();
 
   let parsed;
   try {
@@ -112,25 +126,46 @@ export const identifyPantryItemsFromPhotos = async (photos) => {
   } catch {
     const start = cleaned.indexOf("[");
     const end = cleaned.lastIndexOf("]");
-    if (start < 0 || end <= start) return [];
+    if (start < 0 || end <= start) {
+      const err = new Error("The vision model returned malformed JSON.");
+      err.code = "OPENROUTER_INVALID_RESPONSE";
+      throw err;
+    }
     try {
       parsed = JSON.parse(cleaned.slice(start, end + 1));
     } catch {
-      return [];
+      const err = new Error("The vision model returned malformed JSON.");
+      err.code = "OPENROUTER_INVALID_RESPONSE";
+      throw err;
     }
   }
-  if (!Array.isArray(parsed)) return [];
+  if (!Array.isArray(parsed) && Array.isArray(parsed?.items)) parsed = parsed.items;
+  if (!Array.isArray(parsed)) {
+    const err = new Error("The vision model returned an unexpected result shape.");
+    err.code = "OPENROUTER_INVALID_RESPONSE";
+    throw err;
+  }
 
   return parsed
     .filter((item) => item && typeof item.name === "string" && item.name.trim())
     .map((item) => ({
       name: item.name.trim(),
-      quantity: typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1,
+      quantity:
+        typeof item.quantity === "number" && Number.isFinite(item.quantity) && item.quantity > 0
+          ? item.quantity
+          : 1,
       unit: typeof item.unit === "string" ? item.unit.trim() : "",
       category: typeof item.category === "string" ? item.category.trim().toLowerCase() : "",
       confidence:
         typeof item.confidence === "number" && item.confidence >= 0 && item.confidence <= 1
           ? item.confidence
           : null,
+      expiryDate: isValidISODate(item.expiryDate) ? item.expiryDate : null,
     }));
 };
+
+function isValidISODate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}

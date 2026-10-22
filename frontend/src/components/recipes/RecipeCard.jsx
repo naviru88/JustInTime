@@ -12,7 +12,11 @@ export default function RecipeCard({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const expiringCount = matchedIngredients.filter(
-    (m) => m.daysUntilExpiry !== null && m.daysUntilExpiry <= 2 && m.daysUntilExpiry >= 0
+    (m) =>
+      !m.expiryDateEstimated &&
+      m.daysUntilExpiry !== null &&
+      m.daysUntilExpiry <= 2 &&
+      m.daysUntilExpiry >= 0
   ).length;
 
   return (

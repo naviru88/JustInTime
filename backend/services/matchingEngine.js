@@ -11,8 +11,15 @@
  */
 
 // Higher weight = more urgent to use
-function urgencyWeight(daysUntilExpiry) {
+function urgencyWeight(daysUntilExpiry, estimated = false) {
   if (daysUntilExpiry === null || daysUntilExpiry === undefined) return 1; // no expiry info, neutral
+  // Category-based dates are rough signals, not safety facts. Keep them from
+  // overpowering verified package dates or marking an item expired.
+  if (estimated) {
+    if (daysUntilExpiry <= 2 && daysUntilExpiry >= 0) return 3;
+    if (daysUntilExpiry <= 5 && daysUntilExpiry >= 0) return 2;
+    return 1;
+  }
   if (daysUntilExpiry < 0) return 0; // already expired, don't recommend using it
   if (daysUntilExpiry === 0) return 10; // expires today
   if (daysUntilExpiry <= 2) return 8;
@@ -30,11 +37,17 @@ export function rankRecipes(pantryItems, recipes) {
   // Build a quick lookup: ingredient name -> urgency weight
   const pantryMap = new Map();
   for (const item of pantryItems) {
-    const weight = urgencyWeight(item.daysUntilExpiry);
+    const estimated =
+      item.expiryDateEstimated ?? ["barcode", "image"].includes(item.source);
+    const weight = urgencyWeight(item.daysUntilExpiry, estimated);
     // If the same ingredient appears twice, keep the more urgent weight
     const existing = pantryMap.get(item.name);
     if (!existing || weight > existing.weight) {
-      pantryMap.set(item.name, { weight, daysUntilExpiry: item.daysUntilExpiry });
+      pantryMap.set(item.name, {
+        weight,
+        daysUntilExpiry: item.daysUntilExpiry,
+        expiryDateEstimated: estimated,
+      });
     }
   }
 
@@ -50,6 +63,7 @@ export function rankRecipes(pantryItems, recipes) {
         matchedIngredients.push({
           name: ing.name,
           daysUntilExpiry: pantryEntry.daysUntilExpiry,
+          expiryDateEstimated: pantryEntry.expiryDateEstimated,
         });
       } else {
         missingIngredients.push(ing.name);
@@ -72,7 +86,11 @@ export function rankRecipes(pantryItems, recipes) {
       matchedIngredients,
       missingIngredients,
       usesExpiringSoon: matchedIngredients.some(
-        (m) => m.daysUntilExpiry !== null && m.daysUntilExpiry <= 2 && m.daysUntilExpiry >= 0
+        (m) =>
+          !m.expiryDateEstimated &&
+          m.daysUntilExpiry !== null &&
+          m.daysUntilExpiry <= 2 &&
+          m.daysUntilExpiry >= 0
       ),
     };
   });

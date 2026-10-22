@@ -17,5 +17,5 @@ const fileFilter = (req, file, cb) => {
 export const uploadPhotoMemory = multer({
   storage: multer.memoryStorage(),
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 4 * 1024 * 1024, files: 10 },
 });

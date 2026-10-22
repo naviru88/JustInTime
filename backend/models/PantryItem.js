@@ -50,6 +50,12 @@ const pantryItemSchema = new mongoose.Schema(
       type: Date,
       default: null, // null = no known expiry
     },
+    // null keeps older scanned entries distinguishable; new scans explicitly
+    // record whether the date came from a visible label or a shelf-life guess.
+    expiryDateEstimated: {
+      type: Boolean,
+      default: null,
+    },
     addedAt: {
       type: Date,
       default: Date.now,

@@ -591,11 +591,6 @@ h1 {
   color: var(--color-muted);
 }
 
-.scan-status-found,
-.scan-status-found-estimated {
-  color: var(--color-accent);
-}
-
 .scan-status-error,
 .scan-status-not-found {
   color: var(--color-urgent);
@@ -770,8 +765,7 @@ h1 {
   color: var(--color-urgent);
 }
 
-/* Scan-result overlay: shown after a successful barcode lookup so the
-   person can add the item straight from the scan, no manual typing. */
+/* Photo-recognition review overlay. */
 .scan-result-overlay {
   position: fixed;
   inset: 0;
@@ -781,18 +775,6 @@ h1 {
   justify-content: center;
   z-index: 100;
   padding: 16px;
-}
-
-.scan-result-modal {
-  background: var(--color-surface-strong);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  width: 100%;
-  max-width: 380px;
-  overflow: hidden;
-  box-shadow: var(--glass-shadow-lg);
 }
 
 .scan-result-header {
@@ -816,51 +798,6 @@ h1 {
 
 .scan-result-close:hover {
   color: var(--color-urgent);
-}
-
-.scan-result-body {
-  display: flex;
-  gap: 14px;
-  padding: 18px 16px;
-}
-
-.scan-result-photo {
-  width: 76px;
-  height: 76px;
-  border-radius: 8px;
-  object-fit: contain;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-
-.scan-result-photo-placeholder {
-  width: 76px;
-  height: 76px;
-  border-radius: 8px;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 26px;
-}
-
-.scan-result-info h3 {
-  margin: 0 0 6px;
-  font-size: 16px;
-  text-transform: capitalize;
-}
-
-.scan-result-info p {
-  margin: 0 0 4px;
-  font-size: 13px;
-  color: var(--color-muted);
-}
-
-.scan-result-estimate {
-  color: var(--color-warn) !important;
 }
 
 .scan-result-actions {
@@ -948,6 +885,19 @@ h1 {
   min-width: 0;
 }
 
+.pr-expiry-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pr-expiry-field span {
+  color: var(--color-muted);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
 .photo-recognition-empty {
   padding: 24px 16px;
   text-align: center;
@@ -982,7 +932,7 @@ h1 {
   .photo-recognition-row .pr-unit {
     grid-area: unit;
   }
-  .photo-recognition-row .pr-expiry {
+  .photo-recognition-row .pr-expiry-field {
     grid-area: expiry;
   }
 }
@@ -1059,6 +1009,86 @@ h1 {
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: var(--glass-shadow);
+}
+
+.pantry-edit-form {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pantry-edit-fields {
+  display: grid;
+  grid-template-columns: 2fr 0.8fr 1fr 1.2fr;
+  gap: 8px;
+}
+
+.pantry-edit-fields label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pantry-edit-fields input {
+  min-width: 0;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 7px;
+  padding: 8px;
+  color: var(--color-ink);
+  background: var(--color-surface-strong);
+  font: inherit;
+}
+
+.pantry-edit-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pantry-edit-verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.pantry-edit-hint,
+.pantry-edit-error {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.pantry-edit-error {
+  margin: 0;
+  color: var(--color-urgent);
+}
+
+.pantry-edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pantry-edit-save {
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 14px;
+  color: white;
+  background: var(--color-accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pantry-edit-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .pantry-item-left {
@@ -1795,6 +1825,10 @@ h1 {
   .pantry-item-left {
     flex: 1 1 180px;
   }
+
+  .pantry-edit-fields {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 /* Small phone: tighten spacing further */
@@ -1811,8 +1845,7 @@ h1 {
     padding: 14px;
   }
 
-  .scan-result-body {
-    flex-direction: column;
-    align-items: flex-start;
+  .pantry-edit-fields {
+    grid-template-columns: 1fr;
   }
 }

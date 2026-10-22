@@ -18,10 +18,6 @@ const HINTS = new Map([
       BarcodeFormat.EAN_8,
       BarcodeFormat.UPC_A,
       BarcodeFormat.UPC_E,
-      BarcodeFormat.CODE_128,
-      BarcodeFormat.CODE_39,
-      BarcodeFormat.ITF,
-      BarcodeFormat.CODABAR,
     ],
   ],
 ]);
@@ -31,6 +27,10 @@ export default function BarcodeScanner({ onDetect, onDetectBatch, onClose }) {
   const controlsRef = useRef(null);
   const detectedRef = useRef(false);
   const zxingReaderRef = useRef(null);
+  const onDetectRef = useRef(onDetect);
+  const onDetectBatchRef = useRef(onDetectBatch);
+  onDetectRef.current = onDetect;
+  onDetectBatchRef.current = onDetectBatch;
 
   const [cameraError, setCameraError] = useState(null);
   const [manualCode, setManualCode] = useState("");
@@ -51,14 +51,14 @@ export default function BarcodeScanner({ onDetect, onDetectBatch, onClose }) {
         // to the video element itself, then calls back on every decode
         // attempt (found or not) until we stop it.
         const controls = await getZxingReader().decodeFromConstraints(
-          { video: { facingMode: "environment" } },
+          { video: { facingMode: { ideal: "environment" } } },
           videoRef.current,
           (result, error) => {
             if (cancelled || detectedRef.current) return;
             if (result) {
               detectedRef.current = true;
               controlsRef.current?.stop();
-              onDetect(result.getText());
+              onDetectRef.current(result.getText());
             } else if (error && !(error instanceof NotFoundException)) {
               // NotFoundException fires on every frame with no barcode in
               // view — that's normal and expected, not an error to surface.
@@ -88,18 +88,19 @@ export default function BarcodeScanner({ onDetect, onDetectBatch, onClose }) {
       controlsRef.current?.stop();
       controlsRef.current = null;
     };
-  }, [onDetect]);
+  }, []);
 
   // Decodes one image file to a barcode string, or null if none was found.
   const decodePhoto = async (file) => {
     const url = URL.createObjectURL(file);
     try {
       const image = new Image();
-      image.src = url;
-      await new Promise((resolve, reject) => {
+      const loaded = new Promise((resolve, reject) => {
         image.onload = resolve;
         image.onerror = reject;
       });
+      image.src = url;
+      await loaded;
 
       // Product photos are frequently downscaled by mobile pickers. Decode a
       // large, high-contrast canvas first, then fall back to the original
@@ -129,7 +130,7 @@ export default function BarcodeScanner({ onDetect, onDetectBatch, onClose }) {
 
   const handleManualSubmit = (e) => {
     e.preventDefault();
-    if (manualCode.trim()) onDetect(manualCode.trim());
+    if (manualCode.trim()) onDetectRef.current(manualCode.trim());
   };
 
   const handlePhotoPick = async (e) => {
@@ -156,7 +157,7 @@ export default function BarcodeScanner({ onDetect, onDetectBatch, onClose }) {
         if (codes.length === 1) {
           detectedRef.current = true;
           controlsRef.current?.stop();
-          onDetect(codes[0]);
+          onDetectRef.current(codes[0]);
         } else {
           setPhotoDecoding({ error: "Couldn't find a barcode in that photo. Try a clearer, closer shot." });
         }
@@ -165,7 +166,7 @@ export default function BarcodeScanner({ onDetect, onDetectBatch, onClose }) {
       } else {
         detectedRef.current = true;
         controlsRef.current?.stop();
-        onDetectBatch({ codes, unreadable });
+        onDetectBatchRef.current({ codes, unreadable });
       }
     } finally {
       setPhotoDecoding((prev) => (prev && prev.error ? prev : null));

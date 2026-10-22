@@ -1,5 +1,8 @@
 import { useState } from "react";
 
+const hasValidQuantity = (value) =>
+  value === "" || (Number.isFinite(Number(value)) && Number(value) > 0);
+
 // Shown after a fridge/pantry photo is analyzed. Each detected item is
 // editable and can be excluded before committing — recognition is a best
 // guess, not something that should silently write to the pantry unreviewed.
@@ -12,8 +15,10 @@ export default function PhotoRecognitionOverlay({ items, onAddSelected, onClose,
       quantity: String(item.quantity ?? 1),
       unit: item.unit || "",
       expiryDate: item.expiryDate || "",
-        category: item.category || "",
-        confidence: item.confidence,
+      expiryDateEstimated: item.expiryDateEstimated === true,
+      expiryDateSource: item.expiryDateEstimated ? "estimate" : "model",
+      category: item.category || "",
+      confidence: item.confidence,
     }))
   );
 
@@ -21,16 +26,19 @@ export default function PhotoRecognitionOverlay({ items, onAddSelected, onClose,
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...changes } : r)));
   };
 
-  const includedCount = rows.filter((r) => r.included && r.name.trim()).length;
+  const includedCount = rows.filter(
+    (r) => r.included && r.name.trim() && hasValidQuantity(r.quantity)
+  ).length;
 
   const handleAdd = () => {
     const selected = rows
-      .filter((r) => r.included && r.name.trim())
+      .filter((r) => r.included && r.name.trim() && hasValidQuantity(r.quantity))
       .map((r) => ({
         name: r.name.trim(),
         quantity: r.quantity ? Number(r.quantity) : 1,
         unit: r.unit.trim(),
         expiryDate: r.expiryDate || null,
+        expiryDateEstimated: r.expiryDate ? r.expiryDateEstimated : null,
         category: r.category,
         confidence: r.confidence,
         source: "image",
@@ -75,7 +83,8 @@ export default function PhotoRecognitionOverlay({ items, onAddSelected, onClose,
                 <input
                   className="pr-qty"
                   type="number"
-                  min="0"
+                  min="0.01"
+                  step="any"
                   value={row.quantity}
                   onChange={(e) => updateRow(row.id, { quantity: e.target.value })}
                   placeholder="Qty"
@@ -86,19 +95,37 @@ export default function PhotoRecognitionOverlay({ items, onAddSelected, onClose,
                   onChange={(e) => updateRow(row.id, { unit: e.target.value })}
                   placeholder="Unit"
                 />
-                <input
-                  className="pr-expiry"
-                  type="date"
-                  value={row.expiryDate}
-                  onChange={(e) => updateRow(row.id, { expiryDate: e.target.value })}
-                />
+                <label className="pr-expiry-field">
+                  <input
+                    className="pr-expiry"
+                    type="date"
+                    value={row.expiryDate}
+                    onChange={(e) =>
+                      updateRow(row.id, {
+                        expiryDate: e.target.value,
+                        expiryDateEstimated: false,
+                        expiryDateSource: "entered",
+                      })
+                    }
+                  />
+                  <span>
+                    {!row.expiryDate
+                      ? "No date"
+                      : row.expiryDateEstimated
+                        ? "Estimate · verify"
+                        : row.expiryDateSource === "model"
+                          ? "Model read · verify"
+                          : "Entered · verify"}
+                  </span>
+                </label>
               </div>
             ))}
           </div>
         )}
 
         <p className="photo-recognition-note">
-          Estimated names, quantities, and expiry dates — double-check before adding.
+          Names and quantities are visual estimates. Dates are read only when clearly visible;
+          otherwise a rough shelf-life estimate is shown. Check packages before adding.
         </p>
 
         <div className="scan-result-actions">

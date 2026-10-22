@@ -29,7 +29,7 @@ const recipeSchema = new mongoose.Schema(
       enum: ["seeded", "generated"],
       default: "seeded",
     },
-    // Relative path served statically by Express, e.g. "/uploads/xyz.jpg"
+    // Optional externally hosted recipe image URL.
     photoUrl: {
       type: String,
       default: null,

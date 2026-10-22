@@ -36,4 +36,19 @@ export const estimateShelfLifeDays = (...textParts) => {
 
 export const toISODate = (date) => date.toISOString().slice(0, 10);
 
-export const expiryDateFromToday = (days) => toISODate(new Date(Date.now() + days * 24 * 60 * 60 * 1000));
+export const expiryDateFromToday = (days, localToday = null) => {
+  const now = new Date();
+  const utcToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  let baseDate = utcToday;
+
+  if (typeof localToday === "string" && /^\d{4}-\d{2}-\d{2}$/.test(localToday)) {
+    const requestedDate = new Date(`${localToday}T00:00:00.000Z`);
+    const validDate = !Number.isNaN(requestedDate.getTime()) &&
+      requestedDate.toISOString().slice(0, 10) === localToday;
+    const withinOneDay = Math.abs(requestedDate.getTime() - utcToday.getTime()) <= 24 * 60 * 60 * 1000;
+    if (validDate && withinOneDay) baseDate = requestedDate;
+  }
+
+  baseDate.setUTCDate(baseDate.getUTCDate() + days);
+  return toISODate(baseDate);
+};

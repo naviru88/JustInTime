@@ -2,6 +2,7 @@ import express from "express";
 import {
   getPantryItems,
   addPantryItem,
+  addPantryItems,
   updatePantryItem,
   deletePantryItem,
   lookupBarcode,
@@ -15,6 +16,7 @@ const router = express.Router();
 router.use(protect);
 
 router.route("/").get(getPantryItems).post(addPantryItem);
+router.post("/bulk", addPantryItems);
 // Above "/:id" — "/lookup/:barcode" has two segments so it can't collide,
 // but keeping the more specific route first is the safer habit.
 router.get("/lookup/:barcode", lookupBarcode);

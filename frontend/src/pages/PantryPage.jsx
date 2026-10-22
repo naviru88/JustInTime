@@ -2,7 +2,13 @@ import { useEffect, useState } from "react";
 import PantryItemForm from "../components/pantry/PantryItemForm.jsx";
 import PantryList from "../components/pantry/PantryList.jsx";
 import NotificationSettings from "../components/pantry/NotificationSettings.jsx";
-import { fetchPantryItems, addPantryItem, deletePantryItem } from "../services/api.js";
+import {
+  fetchPantryItems,
+  addPantryItem,
+  addPantryItems,
+  updatePantryItem,
+  deletePantryItem,
+} from "../services/api.js";
 import { syncReminders } from "../services/notifications.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
@@ -45,6 +51,18 @@ export default function PantryPage() {
     setItems((prev) => [...prev, created]);
   };
 
+  const handleAddMany = async (newItems) => {
+    const created = await addPantryItems(newItems);
+    setItems((prev) => [...prev, ...created]);
+    return created;
+  };
+
+  const handleUpdate = async (id, updates) => {
+    const updated = await updatePantryItem(id, updates);
+    setItems((prev) => prev.map((item) => (item._id === id ? updated : item)));
+    return updated;
+  };
+
   const handleDelete = async (id) => {
     await deletePantryItem(id);
     setItems((prev) => prev.filter((i) => i._id !== id));
@@ -59,11 +77,13 @@ export default function PantryPage() {
 
       <NotificationSettings />
 
-      <PantryItemForm onAdd={handleAdd} />
+      <PantryItemForm onAdd={handleAdd} onAddMany={handleAddMany} />
 
       {loading && <p>Loading pantry...</p>}
       {error && <p style={{ color: "#c1440e" }}>{error}</p>}
-      {!loading && !error && <PantryList items={items} onDelete={handleDelete} />}
+      {!loading && !error && (
+        <PantryList items={items} onDelete={handleDelete} onUpdate={handleUpdate} />
+      )}
     </div>
   );
 }

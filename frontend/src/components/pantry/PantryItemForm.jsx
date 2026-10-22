@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import BarcodeScanner from "./BarcodeScanner.jsx";
-import ScanResultOverlay from "./ScanResultOverlay.jsx";
 import PhotoRecognitionOverlay from "./PhotoRecognitionOverlay.jsx";
 import { lookupBarcode, recognizePantryPhotos } from "../../services/api.js";
 
-export default function PantryItemForm({ onAdd }) {
+export default function PantryItemForm({ onAdd, onAddMany }) {
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
+  const [expiryDateEstimated, setExpiryDateEstimated] = useState(false);
   const [barcode, setBarcode] = useState(null);
 
   const photoInputRef = useRef(null);
@@ -17,8 +17,7 @@ export default function PantryItemForm({ onAdd }) {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
-  const [lookupStatus, setLookupStatus] = useState(null); // null | "loading" | "not-found" | "error" | "found-estimated"
-  const [scanResult, setScanResult] = useState(null); // the looked-up product, shown in the overlay
+  const [lookupStatus, setLookupStatus] = useState(null); // null | "loading" | "not-found" | "error"
   const [batchStatus, setBatchStatus] = useState(null); // summary text after a multi-item batch add
 
   // Photo recognition ("scan a fridge/pantry photo") state, separate from
@@ -27,6 +26,7 @@ export default function PantryItemForm({ onAdd }) {
   const [recognizing, setRecognizing] = useState(false);
   const [recognizedItems, setRecognizedItems] = useState(null);
   const [recognitionAdding, setRecognitionAdding] = useState(false);
+  const [savingManual, setSavingManual] = useState(false);
 
   // Close the "Scan" dropdown on an outside click.
   useEffect(() => {
@@ -43,24 +43,33 @@ export default function PantryItemForm({ onAdd }) {
     setQuantity("");
     setUnit("");
     setExpiryDate("");
+    setExpiryDateEstimated(false);
     setBarcode(null);
     setLookupStatus(null);
-    setScanResult(null);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || savingManual) return;
 
-    onAdd({
+    const item = {
       name: name.trim(),
       quantity: quantity ? Number(quantity) : 1,
       unit: unit.trim(),
       expiryDate: expiryDate || null,
+      expiryDateEstimated: expiryDate ? expiryDateEstimated : null,
       barcode,
-    });
-
-    resetForm();
+    };
+    setSavingManual(true);
+    try {
+      await onAdd(item);
+      resetForm();
+      setBatchStatus(`Added ${item.name} to your pantry.`);
+    } catch {
+      setBatchStatus("The item couldn't be saved. Check your connection and try again.");
+    } finally {
+      setSavingManual(false);
+    }
   };
 
   const handleDetected = useCallback(async (code) => {
@@ -68,28 +77,44 @@ export default function PantryItemForm({ onAdd }) {
     setBatchStatus(null);
     setBarcode(code);
     setLookupStatus("loading");
+    let result;
     try {
-      const result = await lookupBarcode(code);
-      if (result.found) {
-        setLookupStatus(null);
-        // A successful scan is already a complete pantry item. Add it
-        // immediately; the lookup supplies quantity, unit and an estimated
-        // shelf-life date so the user never has to retype the product.
-        onAdd({
-          name: result.name,
-          quantity: result.quantity ?? 1,
-          unit: result.unit || "",
-          expiryDate: result.expiryDate || null,
-          barcode: result.barcode,
-          source: "barcode",
-        });
-        setBatchStatus(`Added ${result.name} to your pantry.`);
-        resetForm();
-      } else {
-        setLookupStatus("not-found");
-      }
+      result = await lookupBarcode(code);
     } catch {
       setLookupStatus("error");
+      return;
+    }
+
+    if (!result.found) {
+      setLookupStatus(result.lookupUnavailable ? "error" : "not-found");
+      return;
+    }
+
+    const item = {
+      name: result.name,
+      quantity: result.quantity ?? 1,
+      unit: result.unit || "",
+      expiryDate: result.expiryDate || null,
+      expiryDateEstimated: result.expiryDateEstimated === true,
+      barcode: result.barcode,
+      source: "barcode",
+    };
+    try {
+      await onAdd(item);
+      setLookupStatus(null);
+      setBatchStatus(
+        `Added ${result.name} to your pantry.` +
+          (item.expiryDateEstimated ? " The use-by date is an estimate; check the package." : "")
+      );
+      resetForm();
+    } catch {
+      setName(item.name);
+      setQuantity(String(item.quantity));
+      setUnit(item.unit);
+      setExpiryDate(item.expiryDate || "");
+      setExpiryDateEstimated(item.expiryDateEstimated);
+      setLookupStatus(null);
+      setBatchStatus("Product found, but it wasn't saved. Check the form and try Add again.");
     }
   }, [onAdd]);
 
@@ -97,71 +122,57 @@ export default function PantryItemForm({ onAdd }) {
   // match straight to the pantry (no per-item confirmation), so the list
   // fills in automatically as each lookup resolves.
   const handleDetectedBatch = useCallback(
-    async ({ codes, unreadable }) => {
+    async ({ codes, unreadable = 0 }) => {
       setScannerOpen(false);
       setLookupStatus(null);
       setBatchStatus(`Looking up ${codes.length} barcode${codes.length === 1 ? "" : "s"}...`);
 
-      let added = 0;
-      let notFound = 0;
-      for (const code of codes) {
+      const lookups = await Promise.all(codes.map(async (code) => {
         try {
           const result = await lookupBarcode(code);
-          if (result.found) {
-            onAdd({
-              name: result.name,
-              quantity: result.quantity ?? 1,
-              unit: result.unit || "",
-              expiryDate: result.expiryDate || null,
-              barcode: result.barcode,
-              source: "barcode",
-            });
-            added += 1;
-          } else {
-            notFound += 1;
-          }
+          return { result };
         } catch {
-          notFound += 1;
+          return { error: true };
+        }
+      }));
+
+      const found = lookups
+        .filter(({ result }) => result?.found)
+        .map(({ result }) => ({
+          name: result.name,
+          quantity: result.quantity ?? 1,
+          unit: result.unit || "",
+          expiryDate: result.expiryDate || null,
+          expiryDateEstimated: result.expiryDateEstimated === true,
+          barcode: result.barcode,
+          source: "barcode",
+        }));
+      const notFound = lookups.filter(({ result }) => result && !result.found && !result.lookupUnavailable).length;
+      const unavailable = lookups.filter(({ error, result }) => error || result?.lookupUnavailable).length;
+
+      let added = 0;
+      if (found.length > 0) {
+        try {
+          await onAddMany(found);
+          added = found.length;
+        } catch {
+          setBatchStatus(
+            `Found ${found.length} product${found.length === 1 ? "" : "s"}, but the batch couldn't be saved. ` +
+              "Check your connection and scan again."
+          );
+          return;
         }
       }
 
-      const skipped = unreadable + notFound;
+      const skipped = unreadable + notFound + unavailable;
       setBatchStatus(
         `Added ${added} item${added === 1 ? "" : "s"} from photos` +
-          (skipped > 0 ? ` — ${skipped} couldn't be matched.` : ".")
+          (skipped > 0 ? ` — ${skipped} unreadable, unmatched, or unavailable.` : ".") +
+          (added > 0 ? " Dates are shelf-life estimates; check the packages." : "")
       );
     },
-    [onAdd]
+    [onAddMany]
   );
-
-  // "Add to pantry" in the barcode-match overlay — skips the form entirely.
-  const handleQuickAdd = () => {
-    if (!scanResult) return;
-    onAdd({
-      name: scanResult.name,
-      quantity: scanResult.quantity ?? 1,
-      unit: scanResult.unit || "",
-      expiryDate: scanResult.expiryDate || null,
-      barcode: scanResult.barcode,
-    });
-    setScanResult(null);
-    resetForm();
-  };
-
-  // "Edit details" in the barcode-match overlay — prefills the form instead,
-  // in case something needs adjusting before saving.
-  const handleEditManually = () => {
-    if (scanResult) {
-      setName(scanResult.name);
-      if (scanResult.quantity !== null && scanResult.quantity !== undefined) {
-        setQuantity(String(scanResult.quantity));
-      }
-      if (scanResult.unit) setUnit(scanResult.unit);
-      if (scanResult.expiryDate) setExpiryDate(scanResult.expiryDate);
-      setLookupStatus(scanResult.estimatedExpiry ? "found-estimated" : null);
-    }
-    setScanResult(null);
-  };
 
   // "Scan photo" — identifies every distinct food item visible and opens a
   // confirmation list. Recognition results stay separate from the real pantry
@@ -176,8 +187,12 @@ export default function PantryItemForm({ onAdd }) {
     try {
       const items = await recognizePantryPhotos(files);
       setRecognizedItems(items);
-    } catch {
-      setBatchStatus("Couldn't analyze that photo — try again or add items manually.");
+    } catch (error) {
+      setBatchStatus(
+        error.response?.data?.message ||
+          error.message ||
+          "Couldn't analyze that photo — try again or add items manually."
+      );
     } finally {
       setRecognizing(false);
     }
@@ -186,9 +201,14 @@ export default function PantryItemForm({ onAdd }) {
   const handleAddRecognizedItems = async (items) => {
     setRecognitionAdding(true);
     try {
-      for (const item of items) await onAdd(item);
+      await onAddMany(items);
       setRecognizedItems(null);
-      setBatchStatus(`Added ${items.length} item${items.length === 1 ? "" : "s"} from photo.`);
+      setBatchStatus(
+        `Added ${items.length} item${items.length === 1 ? "" : "s"} from photo. ` +
+          "Estimated dates are marked in your pantry; check the packages."
+      );
+    } catch {
+      setBatchStatus("The items were recognized, but the batch couldn't be saved. Check your connection and try again.");
     } finally {
       setRecognitionAdding(false);
     }
@@ -225,20 +245,20 @@ export default function PantryItemForm({ onAdd }) {
                 role="menuitem"
                 onClick={() => {
                   setMenuOpen(false);
-                   cameraPhotoInputRef.current?.click();
+                  cameraPhotoInputRef.current?.click();
                 }}
               >
-                 📷 Take pantry photo
-               </button>
-               <button
-                 type="button"
-                 role="menuitem"
-                 onClick={() => {
-                   setMenuOpen(false);
-                   photoInputRef.current?.click();
-                 }}
-               >
-                 🖼️ Choose from gallery
+                📷 Take pantry photo
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  photoInputRef.current?.click();
+                }}
+              >
+                🖼️ Choose from gallery
               </button>
             </div>
           )}
@@ -276,7 +296,8 @@ export default function PantryItemForm({ onAdd }) {
         <input
           placeholder="Qty"
           type="number"
-          min="0"
+          min="0.01"
+          step="any"
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
         />
@@ -284,18 +305,22 @@ export default function PantryItemForm({ onAdd }) {
         <input
           type="date"
           value={expiryDate}
-          onChange={(e) => setExpiryDate(e.target.value)}
+          onChange={(e) => {
+            setExpiryDate(e.target.value);
+            setExpiryDateEstimated(false);
+          }}
         />
-        <button type="submit">Add</button>
+        <button type="submit" disabled={savingManual}>
+          {savingManual ? "Adding..." : "Add"}
+        </button>
       </form>
 
       {lookupStatus && (
         <p className={`scan-status scan-status-${lookupStatus}`}>
           {lookupStatus === "loading" && "Looking up product..."}
-          {lookupStatus === "found-estimated" &&
-            "Expiry is an estimate based on the product type, so double-check it."}
           {lookupStatus === "not-found" && "No match for that barcode — fill in the details manually."}
-          {lookupStatus === "error" && "Couldn't reach the product lookup — fill in the details manually."}
+          {lookupStatus === "error" &&
+            "Product lookup is unavailable — fill in the details manually or try again."}
         </p>
       )}
 
@@ -306,15 +331,6 @@ export default function PantryItemForm({ onAdd }) {
           onDetect={handleDetected}
           onDetectBatch={handleDetectedBatch}
           onClose={() => setScannerOpen(false)}
-        />
-      )}
-
-      {scanResult && (
-        <ScanResultOverlay
-          product={scanResult}
-          onAdd={handleQuickAdd}
-          onEditManually={handleEditManually}
-          onClose={() => setScanResult(null)}
         />
       )}
 
