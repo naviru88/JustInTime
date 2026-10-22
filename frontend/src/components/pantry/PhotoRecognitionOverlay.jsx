@@ -3,9 +3,6 @@ import { useState } from "react";
 const hasValidQuantity = (value) =>
   value === "" || (Number.isFinite(Number(value)) && Number(value) > 0);
 
-// Shown after a fridge/pantry photo is analyzed. Each detected item is
-// editable and can be excluded before committing — recognition is a best
-// guess, not something that should silently write to the pantry unreviewed.
 export default function PhotoRecognitionOverlay({ items, onAddSelected, onClose, adding }) {
   const [rows, setRows] = useState(() =>
     items.map((item, i) => ({
@@ -15,10 +12,10 @@ export default function PhotoRecognitionOverlay({ items, onAddSelected, onClose,
       quantity: String(item.quantity ?? 1),
       unit: item.unit || "",
       expiryDate: item.expiryDate || "",
-      expiryDateEstimated: item.expiryDateEstimated === true,
-      expiryDateSource: item.expiryDateEstimated ? "estimate" : "model",
+      expiryDateEstimated: item.expiryDateEstimated !== false,
       category: item.category || "",
       confidence: item.confidence,
+      source: item.source || "image",
     }))
   );
 
@@ -41,7 +38,7 @@ export default function PhotoRecognitionOverlay({ items, onAddSelected, onClose,
         expiryDateEstimated: r.expiryDate ? r.expiryDateEstimated : null,
         category: r.category,
         confidence: r.confidence,
-        source: "image",
+        source: r.source,
       }));
     if (selected.length > 0) onAddSelected(selected);
   };
@@ -62,13 +59,15 @@ export default function PhotoRecognitionOverlay({ items, onAddSelected, onClose,
 
         {rows.length === 0 ? (
           <div className="photo-recognition-empty">
-            Couldn't identify any food in that photo. Try a clearer, closer shot, or add items
-            manually.
+            Couldn't identify any food in that photo. Try a clearer, closer shot, or add items manually.
           </div>
         ) : (
           <div className="photo-recognition-list">
             {rows.map((row) => (
-              <div className={`photo-recognition-row ${row.included ? "" : "excluded"}`} key={row.id}>
+              <div
+                className={`photo-recognition-row ${row.included ? "" : "excluded"}`}
+                key={row.id}
+              >
                 <input
                   type="checkbox"
                   checked={row.included}
@@ -104,7 +103,6 @@ export default function PhotoRecognitionOverlay({ items, onAddSelected, onClose,
                       updateRow(row.id, {
                         expiryDate: e.target.value,
                         expiryDateEstimated: false,
-                        expiryDateSource: "entered",
                       })
                     }
                   />
@@ -112,10 +110,8 @@ export default function PhotoRecognitionOverlay({ items, onAddSelected, onClose,
                     {!row.expiryDate
                       ? "No date"
                       : row.expiryDateEstimated
-                        ? "Estimate · verify"
-                        : row.expiryDateSource === "model"
-                          ? "Model read · verify"
-                          : "Entered · verify"}
+                        ? "Estimated · verify"
+                        : "Verified"}
                   </span>
                 </label>
               </div>

@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import PantryItemForm from "../components/pantry/PantryItemForm.jsx";
 import PantryList from "../components/pantry/PantryList.jsx";
 import NotificationSettings from "../components/pantry/NotificationSettings.jsx";
+import PhotoRecognitionOverlay from "../components/pantry/PhotoRecognitionOverlay.jsx";
 import {
   fetchPantryItems,
   addPantryItem,
   addPantryItems,
   updatePantryItem,
   deletePantryItem,
+  lookupBarcode,
 } from "../services/api.js";
 import { syncReminders } from "../services/notifications.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -17,6 +19,8 @@ export default function PantryPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pendingScanItems, setPendingScanItems] = useState(null);
+  const [isAddingBatch, setIsAddingBatch] = useState(false);
 
   const loadItems = async () => {
     try {
@@ -24,7 +28,7 @@ export default function PantryPage() {
       const data = await fetchPantryItems();
       setItems(data);
       setError(null);
-    } catch (err) {
+    } catch {
       setError("Couldn't load pantry. Is the backend running on port 5000?");
     } finally {
       setLoading(false);
@@ -35,26 +39,63 @@ export default function PantryPage() {
     loadItems();
   }, []);
 
-  // Re-derive the reminder schedule whenever the pantry or the person's
-  // notification settings change. Harmless no-op if notifications are off
-  // or permission hasn't been granted (syncReminders checks both).
   useEffect(() => {
     if (user?.notifications?.enabled) {
       syncReminders(items, user.notifications.daysBefore ?? 2);
     }
   }, [items, user?.notifications?.enabled, user?.notifications?.daysBefore]);
 
-  // Barcode/photo scans (see PantryItemForm) already resolve to plain text
-  // fields before calling this — no image is ever uploaded or saved here.
   const handleAdd = async (item) => {
     const created = await addPantryItem(item);
     setItems((prev) => [...prev, created]);
   };
 
   const handleAddMany = async (newItems) => {
-    const created = await addPantryItems(newItems);
-    setItems((prev) => [...prev, ...created]);
-    return created;
+    setIsAddingBatch(true);
+    try {
+      const result = await addPantryItems(newItems);
+      if (result.failed && result.failed.length > 0) {
+        setError(`${result.failed.length} item(s) could not be saved. Check the details and try again.`);
+      }
+      await loadItems();
+      setPendingScanItems(null);
+    } finally {
+      setIsAddingBatch(false);
+    }
+  };
+
+  const handleBarcodeBatch = async (codes) => {
+    try {
+      const results = await Promise.all(codes.map((code) => lookupBarcode(code)));
+      const validItems = results
+        .filter((r) => r.found)
+        .map((r) => ({
+          name: r.name,
+          quantity: r.quantity ?? 1,
+          unit: r.unit || "",
+          expiryDate: r.expiryDate || null,
+          expiryDateEstimated: true,
+          category: r.category || "pantry",
+          confidence: 1.0,
+          source: "barcode",
+        }));
+
+      if (validItems.length === 0) {
+        setError("None of those barcodes matched a product. Try adding them manually.");
+        return;
+      }
+      setPendingScanItems(validItems);
+    } catch {
+      setError("Barcode lookup failed. Please try again.");
+    }
+  };
+
+  const handlePhotoScan = async (recognizedItems) => {
+    if (!recognizedItems || recognizedItems.length === 0) {
+      setError("No food items were recognized in those photos.");
+      return;
+    }
+    setPendingScanItems(recognizedItems);
   };
 
   const handleUpdate = async (id, updates) => {
@@ -77,12 +118,26 @@ export default function PantryPage() {
 
       <NotificationSettings />
 
-      <PantryItemForm onAdd={handleAdd} onAddMany={handleAddMany} />
+      <PantryItemForm
+        onAdd={handleAdd}
+        onAddMany={handleAddMany}
+        onBarcodeBatch={handleBarcodeBatch}
+        onPhotoScan={handlePhotoScan}
+      />
 
       {loading && <p>Loading pantry...</p>}
       {error && <p style={{ color: "#c1440e" }}>{error}</p>}
       {!loading && !error && (
         <PantryList items={items} onDelete={handleDelete} onUpdate={handleUpdate} />
+      )}
+
+      {pendingScanItems && (
+        <PhotoRecognitionOverlay
+          items={pendingScanItems}
+          onAddSelected={handleAddMany}
+          onClose={() => setPendingScanItems(null)}
+          adding={isAddingBatch}
+        />
       )}
     </div>
   );

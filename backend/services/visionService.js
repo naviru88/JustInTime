@@ -1,13 +1,3 @@
-// Identifies food items in fridge/pantry photos via OpenRouter's
-// OpenAI-compatible vision endpoint — the same account/key the app already
-// uses for recipe generation (see openRouterService.js), so this doesn't
-// require signing up for a second provider just to make photo recognition work.
-//
-// "openrouter/free" (used for recipe text) doesn't reliably route to a
-// vision-capable model, so this uses its own model env var. Free vision
-// model IDs on OpenRouter rotate over time — override OPENROUTER_VISION_MODEL
-// in .env if the default below gets pulled; check
-// https://openrouter.ai/models?modality=text%2Bimage-%3Etext&max_price=0
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_VISION_MODEL = "meta-llama/llama-3.2-11b-vision-instruct:free";
 
@@ -30,8 +20,38 @@ Rules:
 
 const MEDIA_TYPE_BY_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
-// photos: [{ data: Buffer, mimeType: string }]
-// Returns: [{ name, quantity, unit, category, confidence, expiryDate }]
+const inferCategory = (name) => {
+  const n = name.toLowerCase();
+  if (/chicken|beef|pork|fish|meat|steak/.test(n)) return "meat";
+  if (/milk|cheese|yogurt|cream|butter/.test(n)) return "dairy";
+  if (/apple|banana|lettuce|tomato|onion|vegetable|fruit|produce/.test(n)) return "produce";
+  if (/bread|bagel|cake|pastry|bakery/.test(n)) return "bakery";
+  if (/frozen|ice cream/.test(n)) return "frozen";
+  return "pantry";
+};
+
+const isValidISODate = (value) => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+};
+
+const extractJSON = (text) => {
+  const cleaned = text.replace(/```json|```/gi, "").trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const start = cleaned.indexOf("[");
+    const end = cleaned.lastIndexOf("]");
+    if (start < 0 || end <= start) return null;
+    try {
+      return JSON.parse(cleaned.slice(start, end + 1));
+    } catch {
+      return null;
+    }
+  }
+};
+
 export const identifyPantryItemsFromPhotos = async (photos) => {
   if (!photos || photos.length === 0) return [];
 
@@ -109,37 +129,16 @@ export const identifyPantryItemsFromPhotos = async (photos) => {
   const text = Array.isArray(content)
     ? content.map((block) => (typeof block === "string" ? block : block?.text || "")).join("\n")
     : content;
+
   if (typeof text !== "string" || !text.trim()) {
     const err = new Error("The vision model returned no readable result.");
     err.code = "OPENROUTER_INVALID_RESPONSE";
     throw err;
   }
 
-  // Some vision models add a short sentence despite the JSON-only request.
-  // Strip fences and isolate the outer array so a useful response is not
-  // discarded just because of that wrapper text.
-  const cleaned = text.replace(/```json|```/gi, "").trim();
-
-  let parsed;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    const start = cleaned.indexOf("[");
-    const end = cleaned.lastIndexOf("]");
-    if (start < 0 || end <= start) {
-      const err = new Error("The vision model returned malformed JSON.");
-      err.code = "OPENROUTER_INVALID_RESPONSE";
-      throw err;
-    }
-    try {
-      parsed = JSON.parse(cleaned.slice(start, end + 1));
-    } catch {
-      const err = new Error("The vision model returned malformed JSON.");
-      err.code = "OPENROUTER_INVALID_RESPONSE";
-      throw err;
-    }
-  }
+  let parsed = extractJSON(text);
   if (!Array.isArray(parsed) && Array.isArray(parsed?.items)) parsed = parsed.items;
+
   if (!Array.isArray(parsed)) {
     const err = new Error("The vision model returned an unexpected result shape.");
     err.code = "OPENROUTER_INVALID_RESPONSE";
@@ -148,24 +147,26 @@ export const identifyPantryItemsFromPhotos = async (photos) => {
 
   return parsed
     .filter((item) => item && typeof item.name === "string" && item.name.trim())
-    .map((item) => ({
-      name: item.name.trim(),
-      quantity:
-        typeof item.quantity === "number" && Number.isFinite(item.quantity) && item.quantity > 0
-          ? item.quantity
-          : 1,
-      unit: typeof item.unit === "string" ? item.unit.trim() : "",
-      category: typeof item.category === "string" ? item.category.trim().toLowerCase() : "",
-      confidence:
-        typeof item.confidence === "number" && item.confidence >= 0 && item.confidence <= 1
-          ? item.confidence
-          : null,
-      expiryDate: isValidISODate(item.expiryDate) ? item.expiryDate : null,
-    }));
-};
+    .map((item) => {
+      const name = item.name.trim();
+      const category =
+        typeof item.category === "string" && item.category.trim()
+          ? item.category.trim().toLowerCase()
+          : inferCategory(name);
 
-function isValidISODate(value) {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
+      return {
+        name,
+        quantity:
+          typeof item.quantity === "number" && Number.isFinite(item.quantity) && item.quantity > 0
+            ? item.quantity
+            : 1,
+        unit: typeof item.unit === "string" ? item.unit.trim() : "",
+        category,
+        confidence:
+          typeof item.confidence === "number" && item.confidence >= 0 && item.confidence <= 1
+            ? item.confidence
+            : null,
+        expiryDate: isValidISODate(item.expiryDate) ? item.expiryDate : null,
+      };
+    });
+};

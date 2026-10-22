@@ -2,17 +2,13 @@ import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-const api = axios.create({
-  baseURL: API_URL,
-});
+const api = axios.create({ baseURL: API_URL });
 
-// Called by AuthContext whenever the token changes (login/logout/refresh).
 export const setAuthToken = (token) => {
   if (token) api.defaults.headers.common.Authorization = `Bearer ${token}`;
   else delete api.defaults.headers.common.Authorization;
 };
 
-// Auth
 export const signup = (name, email, password) =>
   api.post("/auth/signup", { name, email, password }).then((r) => r.data);
 export const login = (email, password) =>
@@ -23,9 +19,6 @@ export const fetchMe = () => api.get("/auth/me").then((r) => r.data);
 export const updateNotificationSettings = (payload) =>
   api.patch("/auth/notifications", payload).then((r) => r.data);
 
-// If any request comes back 401 (expired/invalid token), broadcast an event
-// so AuthContext can clear the stale session instead of leaving the UI stuck
-// making authenticated calls that will keep failing.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -36,14 +29,14 @@ api.interceptors.response.use(
   }
 );
 
-// Pantry
 export const fetchPantryItems = () => api.get("/pantry").then((r) => r.data);
 export const addPantryItem = (item) => api.post("/pantry", item).then((r) => r.data);
 export const addPantryItems = (items) =>
-  api.post("/pantry/bulk", { items }).then((r) => r.data.items);
+  api.post("/pantry/bulk", { items }).then((r) => r.data);
 export const updatePantryItem = (id, updates) =>
   api.put(`/pantry/${id}`, updates).then((r) => r.data);
 export const deletePantryItem = (id) => api.delete(`/pantry/${id}`).then((r) => r.data);
+
 const localToday = () => {
   const date = new Date();
   const year = date.getFullYear();
@@ -51,8 +44,10 @@ const localToday = () => {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 };
+
 export const lookupBarcode = (barcode) =>
   api.post("/food/barcode", { barcode, today: localToday() }).then((r) => r.data);
+
 const MAX_PHOTO_BATCH_BYTES = 3.5 * 1024 * 1024;
 const MAX_INPUT_PHOTO_BYTES = 20 * 1024 * 1024;
 
@@ -94,13 +89,9 @@ const compressPantryPhotos = async (files, maxDimension, quality) => {
   return compressed;
 };
 
-// Compress photos before upload so batches stay within serverless request
-// limits. Nothing is persisted until the user confirms the reviewed results.
 export const recognizePantryPhotos = async (files) => {
   const selected = Array.from(files);
-  if (selected.length > 10) {
-    throw new Error("Choose up to 10 photos at a time.");
-  }
+  if (selected.length > 10) throw new Error("Choose up to 10 photos at a time.");
   if (selected.some((file) => file.size > MAX_INPUT_PHOTO_BYTES)) {
     throw new Error("Each photo must be 20 MB or smaller before compression.");
   }
@@ -119,7 +110,6 @@ export const recognizePantryPhotos = async (files) => {
   return api.post("/pantry/recognize-photos", form).then((r) => r.data.items);
 };
 
-// Recipes
 export const fetchAllRecipes = () => api.get("/recipes").then((r) => r.data);
 export const fetchMatchedRecipes = (tags = []) =>
   api
@@ -129,11 +119,9 @@ export const generateRecipes = (tags = [], count) =>
   api.post("/recipes/generate", { tags, count }).then((r) => r.data);
 export const deleteRecipe = (id) => api.delete(`/recipes/${id}`).then((r) => r.data);
 
-// Grocery
 export const generateGroceryList = (recipeIds) =>
   api.post("/grocery/generate", { recipeIds }).then((r) => r.data);
 
-// Meal plan
 export const fetchMealPlan = (start, end) =>
   api.get("/mealplan", { params: { start, end } }).then((r) => r.data);
 export const setMealSlot = (date, mealType, recipeId) =>

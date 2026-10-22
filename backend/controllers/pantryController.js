@@ -4,15 +4,17 @@ import { identifyPantryItemsFromPhotos } from "../services/visionService.js";
 
 const MAX_BATCH_ITEMS = 50;
 const VALID_SOURCES = new Set(["manual", "barcode", "image"]);
+const KNOWN_UNITS = ["kg", "g", "mg", "l", "ml", "cl", "lb", "lbs", "oz", "fl oz", "ct", "pcs"];
 
 const normalizePantryItem = (input, userId) => {
   if (!input || typeof input !== "object" || !String(input.name || "").trim()) {
     return { error: "Every pantry item needs a name." };
   }
 
-  const quantity = input.quantity === "" || input.quantity === undefined || input.quantity === null
-    ? 1
-    : Number(input.quantity);
+  const quantity =
+    input.quantity === "" || input.quantity === undefined || input.quantity === null
+      ? 1
+      : Number(input.quantity);
   if (!Number.isFinite(quantity) || quantity <= 0) {
     return { error: `Quantity for "${String(input.name).trim()}" must be greater than zero.` };
   }
@@ -28,9 +30,10 @@ const normalizePantryItem = (input, userId) => {
       ? "barcode"
       : "manual";
 
-  const confidence = input.confidence === "" || input.confidence === undefined || input.confidence === null
-    ? null
-    : Number(input.confidence);
+  const confidence =
+    input.confidence === "" || input.confidence === undefined || input.confidence === null
+      ? null
+      : Number(input.confidence);
 
   return {
     value: {
@@ -43,65 +46,14 @@ const normalizePantryItem = (input, userId) => {
       barcode: input.barcode ? String(input.barcode).trim() : null,
       source,
       confidence:
-        Number.isFinite(confidence) && confidence >= 0 && confidence <= 1
-          ? confidence
-          : null,
+        Number.isFinite(confidence) && confidence >= 0 && confidence <= 1 ? confidence : null,
       category: typeof input.category === "string" ? input.category.trim().toLowerCase() : "",
     },
   };
 };
 
-// GET /api/pantry
-export const getPantryItems = async (req, res, next) => {
-  try {
-    const items = await PantryItem.find({ user: req.user._id }).sort({ expiryDate: 1 });
-    res.json(items);
-  } catch (err) {
-    next(err);
-  }
-};
-
-// POST /api/pantry
-export const addPantryItem = async (req, res, next) => {
-  try {
-    const normalized = normalizePantryItem(req.body, req.user._id);
-    if (normalized.error) return res.status(400).json({ message: normalized.error });
-    const item = await PantryItem.create(normalized.value);
-    res.status(201).json(item);
-  } catch (err) {
-    next(err);
-  }
-};
-
-// POST /api/pantry/bulk — validate the entire selection before writing it.
-export const addPantryItems = async (req, res, next) => {
-  try {
-    const items = req.body?.items;
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ message: "Choose at least one pantry item to add." });
-    }
-    if (items.length > MAX_BATCH_ITEMS) {
-      return res.status(400).json({ message: `A batch can contain at most ${MAX_BATCH_ITEMS} items.` });
-    }
-
-    const normalized = items.map((item) => normalizePantryItem(item, req.user._id));
-    const invalid = normalized.find((item) => item.error);
-    if (invalid) return res.status(400).json({ message: invalid.error });
-
-    const created = await PantryItem.insertMany(normalized.map((item) => item.value));
-    res.status(201).json({ items: created });
-  } catch (err) {
-    next(err);
-  }
-};
-
-// Best-effort parse of Open Food Facts' free-text "quantity" field (e.g.
-// "500 g", "1 L", "12x330ml") into a numeric amount + unit we can prefill.
-const KNOWN_UNITS = ["kg", "g", "mg", "l", "ml", "cl", "lb", "lbs", "oz", "fl oz", "ct", "pcs"];
-
 const parseQuantity = (quantityText) => {
   if (typeof quantityText !== "string" || !quantityText) return { amount: null, unit: "" };
-
   const matches = [...quantityText.matchAll(/([\d.,]+)\s*([a-zA-Zµ]+)/g)];
   for (const [, rawAmount, rawUnit] of matches) {
     const unit = rawUnit.toLowerCase();
@@ -113,9 +65,62 @@ const parseQuantity = (quantityText) => {
   return { amount: null, unit: "" };
 };
 
-// GET /api/pantry/lookup/:barcode
-// Looks up a scanned UPC/EAN against Open Food Facts (no API key needed) so
-// the pantry form can prefill a name/unit instead of the user typing it.
+export const getPantryItems = async (req, res, next) => {
+  try {
+    const items = await PantryItem.find({ user: req.user._id }).sort({ expiryDate: 1 });
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const addPantryItem = async (req, res, next) => {
+  try {
+    const normalized = normalizePantryItem(req.body, req.user._id);
+    if (normalized.error) return res.status(400).json({ message: normalized.error });
+    const item = await PantryItem.create(normalized.value);
+    res.status(201).json(item);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const addPantryItems = async (req, res, next) => {
+  try {
+    const items = req.body?.items;
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: "Choose at least one pantry item to add." });
+    }
+    if (items.length > MAX_BATCH_ITEMS) {
+      return res.status(400).json({ message: `A batch can contain at most ${MAX_BATCH_ITEMS} items.` });
+    }
+
+    const results = { success: [], failed: [] };
+
+    for (const item of items) {
+      const normalized = normalizePantryItem(item, req.user._id);
+      if (normalized.error) {
+        results.failed.push({ item, error: normalized.error });
+        continue;
+      }
+      try {
+        const created = await PantryItem.create(normalized.value);
+        results.success.push(created);
+      } catch {
+        results.failed.push({ item, error: "Database rejected this item." });
+      }
+    }
+
+    if (results.success.length === 0) {
+      return res.status(400).json({ message: "All items failed validation.", details: results.failed });
+    }
+
+    res.status(201).json(results);
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const lookupBarcode = async (req, res, next) => {
   try {
     const barcode = String(req.params.barcode || req.body?.barcode || "").trim();
@@ -135,9 +140,7 @@ export const lookupBarcode = async (req, res, next) => {
           headers: { "User-Agent": "JustInTimeExpiryRecipePlanner/1.0" },
         }
       );
-      if (!response.ok) {
-        return res.json({ found: false, barcode, lookupUnavailable: true });
-      }
+      if (!response.ok) return res.json({ found: false, barcode, lookupUnavailable: true });
       payload = await response.json();
     } finally {
       clearTimeout(timeout);
@@ -147,12 +150,7 @@ export const lookupBarcode = async (req, res, next) => {
       return res.json({ found: false, barcode });
     }
 
-    const {
-      product_name,
-      quantity,
-      brands,
-      categories_tags,
-    } = payload.product;
+    const { product_name, quantity, brands, categories_tags } = payload.product;
     const { amount, unit } = parseQuantity(quantity);
     const shelfLifeDays = estimateShelfLifeDays(categories_tags, product_name);
     const expiryDate = expiryDateFromToday(shelfLifeDays, req.body?.today);
@@ -167,10 +165,10 @@ export const lookupBarcode = async (req, res, next) => {
       quantity: amount ?? 1,
       unit,
       expiryDate,
-      expiryDateEstimated: true, // barcode databases do not contain the package's printed date
+      expiryDateEstimated: true,
+      category: categories_tags?.[0]?.replace("en:", "") || "pantry",
     });
   } catch (err) {
-    // A product lookup outage should not prevent manual entry or another scan.
     return res.json({
       found: false,
       barcode: String(req.params.barcode || req.body?.barcode || ""),
@@ -180,7 +178,6 @@ export const lookupBarcode = async (req, res, next) => {
   }
 };
 
-// PUT /api/pantry/:id
 export const updatePantryItem = async (req, res, next) => {
   try {
     const body = req.body || {};
@@ -220,6 +217,7 @@ export const updatePantryItem = async (req, res, next) => {
     } else if (Object.hasOwn(body, "expiryDate")) {
       updates.expiryDateEstimated = updates.expiryDate ? false : null;
     }
+
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ message: "Provide at least one pantry field to update." });
     }
@@ -236,7 +234,6 @@ export const updatePantryItem = async (req, res, next) => {
   }
 };
 
-// DELETE /api/pantry/:id
 export const deletePantryItem = async (req, res, next) => {
   try {
     const item = await PantryItem.findOneAndDelete({ _id: req.params.id, user: req.user._id });
@@ -247,10 +244,6 @@ export const deletePantryItem = async (req, res, next) => {
   }
 };
 
-// POST /api/pantry/recognize-photos  (multipart/form-data, field name "photos")
-// Runs each photo through vision recognition and returns a list of detected
-// food items with an estimated expiry — nothing is saved to the pantry yet,
-// the frontend shows these for review before adding.
 export const recognizePantryPhotos = async (req, res, next) => {
   try {
     if (!req.files || req.files.length === 0) {
@@ -267,9 +260,7 @@ export const recognizePantryPhotos = async (req, res, next) => {
       detected = await identifyPantryItemsFromPhotos(photos);
     } catch (visionErr) {
       if (visionErr.code === "OPENROUTER_NOT_CONFIGURED") {
-        return res.status(503).json({
-          message: "Photo recognition isn't configured on this server yet.",
-        });
+        return res.status(503).json({ message: "Photo recognition isn't configured on this server yet." });
       }
       throw visionErr;
     }
@@ -291,8 +282,11 @@ export const recognizePantryPhotos = async (req, res, next) => {
 
     res.json({ items });
   } catch (err) {
-    if (err.code === "OPENROUTER_TIMEOUT" || err.code === "OPENROUTER_REQUEST_FAILED" ||
-      err.code === "OPENROUTER_INVALID_RESPONSE") {
+    if (
+      err.code === "OPENROUTER_TIMEOUT" ||
+      err.code === "OPENROUTER_REQUEST_FAILED" ||
+      err.code === "OPENROUTER_INVALID_RESPONSE"
+    ) {
       return res.status(502).json({
         message: "Photo recognition could not complete. Try fewer or clearer photos, or enter the items manually.",
       });
