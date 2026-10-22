@@ -10,30 +10,16 @@ const normalizePantryItem = (input, userId) => {
   if (!input || typeof input !== "object" || !String(input.name || "").trim()) {
     return { error: "Every pantry item needs a name." };
   }
-
-  const quantity =
-    input.quantity === "" || input.quantity === undefined || input.quantity === null
-      ? 1
-      : Number(input.quantity);
+  const quantity = input.quantity === "" || input.quantity === undefined || input.quantity === null ? 1 : Number(input.quantity);
   if (!Number.isFinite(quantity) || quantity <= 0) {
     return { error: `Quantity for "${String(input.name).trim()}" must be greater than zero.` };
   }
-
   const expiryDate = input.expiryDate || null;
   if (expiryDate && Number.isNaN(Date.parse(expiryDate))) {
     return { error: `Expiry date for "${String(input.name).trim()}" is invalid.` };
   }
-
-  const source = VALID_SOURCES.has(input.source)
-    ? input.source
-    : input.barcode
-      ? "barcode"
-      : "manual";
-
-  const confidence =
-    input.confidence === "" || input.confidence === undefined || input.confidence === null
-      ? null
-      : Number(input.confidence);
+  const source = VALID_SOURCES.has(input.source) ? input.source : input.barcode ? "barcode" : "manual";
+  const confidence = input.confidence === "" || input.confidence === undefined || input.confidence === null ? null : Number(input.confidence);
 
   return {
     value: {
@@ -45,8 +31,7 @@ const normalizePantryItem = (input, userId) => {
       expiryDateEstimated: expiryDate ? input.expiryDateEstimated === true : null,
       barcode: input.barcode ? String(input.barcode).trim() : null,
       source,
-      confidence:
-        Number.isFinite(confidence) && confidence >= 0 && confidence <= 1 ? confidence : null,
+      confidence: Number.isFinite(confidence) && confidence >= 0 && confidence <= 1 ? confidence : null,
       category: typeof input.category === "string" ? input.category.trim().toLowerCase() : "",
     },
   };
@@ -106,7 +91,8 @@ export const addPantryItems = async (req, res, next) => {
       try {
         const created = await PantryItem.create(normalized.value);
         results.success.push(created);
-      } catch {
+      } catch (dbErr) {
+        console.error("DB Error saving item:", dbErr);
         results.failed.push({ item, error: "Database rejected this item." });
       }
     }
@@ -137,11 +123,18 @@ export const lookupBarcode = async (req, res, next) => {
         `https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=product_name,quantity,brands,categories_tags`,
         {
           signal: controller.signal,
-          headers: { "User-Agent": "JustInTimeExpiryRecipePlanner/1.0" },
+          headers: { "User-Agent": "JustInTimeExpiryRecipePlanner/1.0 (Contact: your-email@example.com)" },
         }
       );
-      if (!response.ok) return res.json({ found: false, barcode, lookupUnavailable: true });
+      
+      if (!response.ok) {
+        console.error(`OpenFoodFacts API Error: ${response.status} ${response.statusText}`);
+        return res.json({ found: false, barcode, lookupUnavailable: true });
+      }
       payload = await response.json();
+    } catch (err) {
+      console.error("Barcode fetch failed:", err.message);
+      throw err;
     } finally {
       clearTimeout(timeout);
     }
@@ -158,10 +151,7 @@ export const lookupBarcode = async (req, res, next) => {
     res.json({
       found: true,
       barcode,
-      name:
-        typeof brands === "string" && brands.trim()
-          ? `${product_name} (${brands.split(",")[0].trim()})`
-          : product_name,
+      name: typeof brands === "string" && brands.trim() ? `${product_name} (${brands.split(",")[0].trim()})` : product_name,
       quantity: amount ?? 1,
       unit,
       expiryDate,
@@ -169,6 +159,7 @@ export const lookupBarcode = async (req, res, next) => {
       category: categories_tags?.[0]?.replace("en:", "") || "pantry",
     });
   } catch (err) {
+    console.error("Barcode lookup caught error:", err);
     return res.json({
       found: false,
       barcode: String(req.params.barcode || req.body?.barcode || ""),
@@ -259,6 +250,7 @@ export const recognizePantryPhotos = async (req, res, next) => {
     try {
       detected = await identifyPantryItemsFromPhotos(photos);
     } catch (visionErr) {
+      console.error("Vision Service Error:", visionErr);
       if (visionErr.code === "OPENROUTER_NOT_CONFIGURED") {
         return res.status(503).json({ message: "Photo recognition isn't configured on this server yet." });
       }
@@ -282,6 +274,7 @@ export const recognizePantryPhotos = async (req, res, next) => {
 
     res.json({ items });
   } catch (err) {
+    console.error("Photo Recognition Endpoint Error:", err);
     if (
       err.code === "OPENROUTER_TIMEOUT" ||
       err.code === "OPENROUTER_REQUEST_FAILED" ||
